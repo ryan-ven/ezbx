@@ -191,6 +191,6 @@ It does not fully protect against:
 ## 14. Open questions
 
 1. Exact format of `ezbx.toml` (box, engine and harness sections).
-2. How `ezbx init` presents the choices (plain prompts, or a richer text interface).
-3. Where snapshots and the gateway log live on disk by default.
+2. ~~How `ezbx init` presents the choices.~~ Decided in [init-flow.md](init-flow.md): plain prompts first, every question also a flag.
+3. ~~Where snapshots and the gateway log live on disk by default.~~ Decided in [init-flow.md](init-flow.md): per-user config and state folders, never inside the workspace.
 4. How the gateway proves which engine and model it is forwarding to, so `doctor` can confirm the path end to end.

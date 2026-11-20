@@ -154,4 +154,4 @@ Errors use the OpenAI-style error body so harnesses display them sensibly.
 
 1. How each engine reports token usage in streamed responses.
 2. Whether the gateway should enforce one request at a time per engine, or leave queuing to the engine.
-3. Default location of the state folder and logs (shared with `design.md`).
+3. ~~Default location of the state folder and logs.~~ Decided in `init-flow.md`: a per-user state folder, never inside the workspace and never mounted into the box.
