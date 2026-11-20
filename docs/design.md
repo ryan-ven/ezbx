@@ -52,7 +52,7 @@ One small service that does four jobs:
 | **Egress control** | A forward proxy that applies the current network mode (section 5). |
 | **Request log** | Records model, token counts, latency and blocked requests, for debugging and for judging a model. |
 
-Decided: the gateway is one small Go binary, shipped in a minimal image and sharing code with the CLI.
+Decided: the gateway is one small Go binary, shipped in a minimal image and sharing code with the CLI. The full design is in [gateway.md](gateway.md).
 
 ## 4. Engine adapters
 
@@ -86,7 +86,7 @@ Containers reach the host through a host alias. On Docker Desktop this worked fo
 |---|---|---|
 | `off` | yes | none |
 | `allow` | yes | only domains on the allowlist (package registries, the code host, and any API a chosen cloud harness needs) |
-| `on` | yes | everything |
+| `on` | yes | the public internet (local networks and the host stay blocked) |
 
 - Switching modes only changes the gateway's rules, so running sessions continue.
 - Each harness manifest lists the domains it needs, and `allow` merges the lists of the installed harnesses.
