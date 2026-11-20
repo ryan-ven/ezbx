@@ -27,7 +27,7 @@ Decided: the admin listener binds only to the loopback address **inside the gate
 
 Options considered and set aside: binding to the gateway's outside-network address only (needs the gateway to find its own address, depends on how Docker publishes ports for a container on two networks, and relies on the box being unable to add routes), and a separate admin container joined to the gateway by a shared socket (more parts for the same result). If `docker exec` turns out too slow, the outside-address option is the fallback.
 
-The end-to-end test must show the box can reach the model and proxy ports and no other port on the gateway. Ports are examples and will be configurable.
+The code refuses an admin address that isn't a loopback address, so a typo can't put it on the box's network. In the Docker test, a full port scan of the gateway from the box found only the model and proxy ports, and the proxy refuses the gateway's own loopback addresses (see [isolation-test.md](isolation-test.md)). Ports are set with flags (`--listen`, `--proxy`, `--admin`).
 
 ## 3. The model route
 
@@ -88,12 +88,17 @@ The proxy is how the box reaches the internet, if at all.
 Rules for every mode:
 
 - **Hostnames, not content.** HTTPS goes through a plain tunnel and is never decrypted, so filtering is by domain. There is no path-level filtering.
-- **Local networks stay blocked**, even in `on`. The proxy refuses private ranges, loopback, link-local and cloud metadata addresses, plus the host alias, unless the config explicitly allows one. Without this, the box could reach other services on your PC or LAN through the gateway.
-- **Resolve once, then connect.** The gateway resolves the name itself and checks the resulting address against the blocked ranges before connecting, so a hostname can't point at a private address.
-- **Blocked requests are logged** with the host and the reason, so `ezbx net allow <domain>` is easy to use.
+- **Local networks stay blocked**, even in `on`. The proxy refuses loopback, private, link-local (which includes the `169.254.169.254` cloud metadata address), carrier-grade NAT, multicast, documentation and reserved ranges, and the IPv6 forms that can carry an IPv4 address (`::ffff:`, NAT64, 6to4). It also refuses `localhost` and Docker Desktop's `*.docker.internal` names by name. Without this, the box could reach other services on your PC or LAN, or the gateway's own admin API, through the gateway. There is no setting to allow a local address yet.
+- **Resolve once, then connect.** The gateway resolves the name itself. If **any** address it gets back is local, the request is refused. Otherwise it connects to the checked address itself, not the name, so a second lookup can't return something else.
+- **Ports 80 and 443 only.** Other ports are refused.
+- **HTTPS and plain HTTP.** HTTPS uses `CONNECT`. A plain `http://` request is forwarded under the same rules. Protocol upgrades are refused.
+- **A limit on open connections** (256 by default). Past it, the reply is 503 with `Retry-After`.
+- **Blocked requests are logged** with the host and the reason, so `ezbx net allow <domain>` is easy to use. The 403 reply says what to run on the host.
 - **Tools that ignore proxy settings** simply fail, because the box has no other route. That is the desired result.
 
-The mode is changed through the admin API and takes effect for new connections. Open tunnels are closed when the mode tightens.
+**The allowlist** holds host names, never addresses. `example.com` matches only that name. `*.example.com` matches names under it, such as `api.example.com`, but not `example.com` itself, so each is approved on purpose. A wildcard over a top-level domain (`*.com`) is refused.
+
+The mode is changed through the admin API and takes effect for new connections at once. Open tunnels the new rules don't allow are closed, and their log line says `"closed": "network_tightened"`.
 
 ## 6. Logging
 
@@ -102,15 +107,17 @@ One JSON object per line, written to the per-user state folder (decided in `init
 | Field | Meaning |
 |---|---|
 | `time`, `id` | Timestamp and request id. |
-| `route` | `model` or `proxy`. |
-| `method`, `path` or `host` | What was requested. |
-| `model` | Model name from the request, when present. |
-| `status`, `blocked`, `reason` | Outcome, and why if blocked. |
-| `ms`, `ttfb_ms` | Total time and time to the first byte. |
+| `route` | `model`, `proxy` or `admin`. |
+| `method`, `path` or `host` | What was requested. Proxy lines have `host` (with the port). |
+| `engine`, `model` | Model route: the engine, and the model name from the request when present. |
+| `status` | The status code sent back. For a tunnel, 200 means it opened. |
+| `blocked`, `reason` | Proxy: `blocked` is true when the network rules refused the request, and `reason` says which rule (`network_off`, `not_on_allowlist`, `local_address`, `port_not_allowed`). A request that failed for another reason has a `reason` (`lookup_failed`, `connect_failed`, `bad_host`, `proxy_busy`) but isn't `blocked`. |
+| `closed` | Proxy: `network_tightened` when a mode change ended the tunnel. |
+| `ms`, `ttfb_ms` | Total time and, on the model route, time to the first byte. For a tunnel, `ms` is how long it stayed open. |
 | `end` | Only when a reply was cut short: `client_gone` (the box left; the status is then 499) or `engine_idle` (the engine went quiet). |
 | `tokens_in`, `tokens_out` | Planned. When the response reports usage. **Verify** how each engine reports usage in streams. |
 
-Built today: `time`, `id`, `route`, `method`, `path`, `engine`, `model`, `status`, `ms`, `ttfb_ms` and `end`. The proxy fields and token counts come with the egress proxy and usage metering.
+Built today: everything above except the token counts. A proxy line is written when a tunnel ends, with `time` set to when it started. The admin token never appears in the log.
 
 Prompts and responses are **not** logged. A switch to log them, and rotation by size, are planned.
 
@@ -120,7 +127,9 @@ Prompts and responses are **not** logged. A switch to log them, and rotation by 
 |---|---|
 | `/healthz` | The gateway process is alive. |
 | `/readyz` | The upstream engine answered and listed at least one model. Each call asks the engine, so it may move to the admin listener once that exists, leaving only `/healthz` on the box's side. |
-| admin `/admin/status` | Engine, upstream address, model count, network mode and counters. |
+| admin `/admin/status` | Engine, upstream address, network mode and allowlist, proxy counters (allowed, blocked, failed, open) and uptime. |
+
+The gateway image has no shell or curl, so its Docker healthcheck runs `ezbx gateway health`, which exits 0 when `/healthz` answers.
 
 ### What `ezbx doctor` checks
 
@@ -142,16 +151,32 @@ Errors use the OpenAI-style error body so harnesses display them sensibly.
 | Path not allowed, or a protocol upgrade | 400. |
 | Method other than GET, HEAD or POST | 405. |
 | Engine still loading a model | The engine's own error, passed through. |
-| Proxy blocked | 403 with the reason in the body, and a log line. |
+| Proxy blocked | 403 with the reason and what to run in the body, and a log line. |
+| Proxy can't resolve or reach the host | 502. |
+| Too many open proxy connections | 503 with `Retry-After`. |
 
 ## 9. Admin API (first set)
 
-| Call | Purpose |
-|---|---|
-| `GET /admin/status` | Current state. |
-| `PUT /admin/engine` | Switch the upstream engine. |
-| `PUT /admin/network` | Set the mode, or add an allowlisted domain. |
-| `POST /admin/engine/unload` | Ask the engine to unload its model, if the adapter supports it ("gaming mode"). |
+Every call needs `Authorization: Bearer <token>`. The token is at least 32 characters, read from a file (`--admin-token-file`, by default `/run/ezbx/admin-token`, mounted read-only from the host state folder). Request bodies are small JSON objects, and unknown fields are refused, so a typo is an error rather than ignored.
+
+| Call | Body | Purpose |
+|---|---|---|
+| `GET /admin/status` | | Current state (section 7). |
+| `PUT /admin/engine` | `{"upstream": "http://…", "engine": "id"}` | Switch the upstream engine. |
+| `PUT /admin/network` | `{"mode": "allow", "allow": ["registry.npmjs.org"]}` | Set the mode and replace the allowlist. The reply says how many tunnels were closed. |
+| `POST /admin/network/allow` | `{"domain": "github.com"}` | Add one entry and keep the mode. |
+| `POST /admin/engine/unload` | | Planned: ask the engine to unload its model, if the adapter supports it ("gaming mode"). |
+
+From the host, each call is one `docker exec`:
+
+```text
+docker exec ezbx-<box>-gateway /ezbx gateway admin status
+docker exec ezbx-<box>-gateway /ezbx gateway admin network allow registry.npmjs.org
+docker exec ezbx-<box>-gateway /ezbx gateway admin allow github.com
+docker exec ezbx-<box>-gateway /ezbx gateway admin engine http://host.docker.internal:PORT strata
+```
+
+`ezbx net` and `ezbx engine use` will wrap these.
 
 ## 10. Implementation notes
 
@@ -177,13 +202,17 @@ Built and tested (`internal/gateway`, run with `ezbx gateway serve`):
 - Key injection (the box's placeholder is dropped), and no `X-Forwarded-For` or `Forwarded`.
 - `X-Ezbx-Engine` and `X-Ezbx-Request-Id` on every reply from the engine, `X-Ezbx-Model` when the request named a model, and engine-set `X-Ezbx-*` headers removed.
 - `/healthz` and `/readyz`, OpenAI-style errors, a request size limit, a shared memory budget for request bodies, and JSON logging with no prompts, replies or keys (499 and `end` when a reply is cut short).
-- Switching the upstream at run time in code (`SetUpstream`).
+- Switching the upstream at run time, through the admin API.
+- The egress proxy (`--proxy`) with the `off`, `allow` and `on` modes, the allowlist, local-address blocking after one lookup, the port limit, plain HTTP, the connection limit, closing tunnels when the mode tightens, and logging of every request with its reason.
+- The admin API (`--admin`, loopback only, token required) and `ezbx gateway admin` to call it. `ezbx gateway health` for the Docker healthcheck.
+
+Each proxy protection was mutation-checked: turning it off makes a test fail.
 
 Checked against a real engine (Strata): readiness, model list, a normal chat reply and a streamed reply that arrived chunk by chunk. That check was done before the path checks, limits and memory budget were added.
 
-Not built yet: the egress proxy and network modes, the admin API (so `SetUpstream` has no outside control yet), the cloud provider routes (design decision 8), and token usage in the log.
+Not built yet: the engine unload call, a setting to allow a chosen local address, the cloud provider routes (design decision 8), and token usage in the log.
 
-Docker: a first gateway image exists ([docker/gateway.Dockerfile](../docker/gateway.Dockerfile)) and was run locked down in the isolation test ([isolation-test.md](isolation-test.md)), forwarding to an engine on the host's loopback through `host.docker.internal`. `ezbx` doesn't create or start it yet; that was done by hand.
+Docker: the gateway image ([docker/gateway.Dockerfile](../docker/gateway.Dockerfile)) was run locked down with the proxy and admin API in the isolation test ([isolation-test.md](isolation-test.md)). `ezbx` doesn't create or start containers yet; that was done by hand.
 
 ## 12. Milestones
 

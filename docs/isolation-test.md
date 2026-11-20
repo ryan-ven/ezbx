@@ -49,9 +49,20 @@ The first box image ([docker/box.Dockerfile](../docker/box.Dockerfile): Node 24 
 
 Not covered: Pi with a real model, tool calls, and the interactive interface.
 
+### The egress proxy and the admin API (same day)
+
+The gateway ran with the proxy on port 3128 (starting in `off`) and the admin API on its own loopback, with the token file mounted read-only. Docker reported the gateway healthy through `ezbx gateway health`. Every change below was made from the host with `docker exec ... ezbx gateway admin`. Tests ran from the box image with the usual proxy variables set.
+
+- **Admin API out of reach.** A full port scan of the gateway from the box found only 8000 and 3128. Port 8099 was closed as `gateway:8099`, and through the proxy as `127.0.0.1:8099`, `localhost:8099`, `[::ffff:127.0.0.1]:8099` and `0.0.0.0:8099`.
+- **`off`:** every proxy request got 403, including `example.com`, `github.com` and `1.1.1.1`.
+- **`allow` with `registry.npmjs.org`:** `npm view left-pad version` worked through the proxy. `git ls-remote https://github.com/...` was refused with 403 (`not_on_allowlist`), then worked after `allow github.com`.
+- **`on`:** tunnels to `example.com:443` and `1.1.1.1:443` opened. Refused with 403: `host.docker.internal`, `gateway.docker.internal`, Docker Desktop's host and DNS addresses, the bridge addresses, `169.254.169.254`, `10.0.0.1`, `[::1]`, and ports 22 and 8080. Also refused: public names that resolve to local addresses (`localtest.me` to 127.0.0.1, and `169.254.169.254.nip.io` and `10.0.0.1.nip.io`). The log gave `local_address` as the reason, so the check after the lookup caught them.
+- **Tightening:** with a tunnel to `example.com` open, switching from `on` to `allow` (npm registry only) closed it at once. The admin reply said one tunnel was closed, and its log line says `network_tightened`.
+- The admin token never appeared in the gateway log.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.
 - Only TCP and DNS over UDP were tested. Other UDP and ICMP were not.
-- The admin API is not built yet. When it is, the scan of the gateway must still show only the model and proxy ports.
+- The proxy test used live public sites and public DNS. The address checks themselves are also covered by unit tests that need no network.
 - One machine, one Docker Desktop version. The test should be re-run on upgrades and become part of `ezbx doctor`.
