@@ -181,7 +181,9 @@ Built and tested (`internal/gateway`, run with `ezbx gateway serve`):
 
 Checked against a real engine (Strata): readiness, model list, a normal chat reply and a streamed reply that arrived chunk by chunk. That check was done before the path checks, limits and memory budget were added.
 
-Not built yet: the egress proxy and network modes, the admin API (so `SetUpstream` has no outside control yet), the cloud provider routes (design decision 8), token usage in the log, and the Docker packaging.
+Not built yet: the egress proxy and network modes, the admin API (so `SetUpstream` has no outside control yet), the cloud provider routes (design decision 8), and token usage in the log.
+
+Docker: a first gateway image exists ([docker/gateway.Dockerfile](../docker/gateway.Dockerfile)) and was run locked down in the isolation test ([isolation-test.md](isolation-test.md)), forwarding to an engine on the host's loopback through `host.docker.internal`. `ezbx` doesn't create or start it yet; that was done by hand.
 
 ## 12. Milestones
 
