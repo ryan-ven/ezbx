@@ -135,10 +135,26 @@ The gateway image has no shell or curl, so its Docker healthcheck runs `ezbx gat
 
 ### What `ezbx doctor` checks
 
-1. Gateway running and ready.
-2. From inside the box, the model list comes back through the gateway.
-3. A tiny completion succeeds and the headers name the expected engine and model.
-4. The box cannot reach the internet when the mode is `off`, and cannot reach the host or LAN in any mode.
+`ezbx doctor [--box NAME] [--json]` (built). Every failure or warning comes with what to do about it, and the command exits 1 if anything failed.
+
+On the host:
+
+1. **Docker** answers, and its engine is version 28 or later (needed for the isolated network option).
+2. **An engine** is running (detection).
+3. **The inside network** is internal, its bridge has no address (`gateway_mode_ipv4=isolated`) and IPv6 is off. **The outside network** exists and isn't internal.
+4. **The gateway container** is running and healthy; has no capabilities, `no-new-privileges`, a non-root user and a read-only root filesystem; is attached to exactly the two networks, as `gateway` on the inside one; and publishes no port beyond this computer's loopback, and never the admin port.
+5. **Through the admin API** (`docker exec`): it answers, the engine is ready, and the gateway forwards to the port the running engine is on.
+6. **The box container**, if there is one: no capabilities, `no-new-privileges`, not root, attached only to the inside network, and no Docker socket mounted.
+
+From inside, in a throwaway container started from the gateway's own image (which holds `ezbx`), attached only to the inside network, with the box's restrictions:
+
+7. The model list comes back through the gateway and names the expected engine. A one-token completion succeeds and names the model.
+8. A full port scan of the gateway finds only the model and proxy ports.
+9. If the inside network's bridge has an address, a full port scan of it finds nothing.
+10. No direct route to public addresses, the gateway's outside address, the outside network's bridge, Docker Desktop's host address, or this computer's own addresses. Outside names and Docker Desktop's host names don't resolve.
+11. The proxy refuses local addresses (the host alias, loopback including the admin port, cloud metadata, this computer's addresses), and applies the network mode (`off` refuses a public site; `on` reaches one).
+
+This computer's own addresses are only passed to the check container. They are never written anywhere. The results of running it are in [isolation-test.md](isolation-test.md).
 
 ## 8. Failures
 

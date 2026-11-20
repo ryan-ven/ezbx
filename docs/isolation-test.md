@@ -73,9 +73,17 @@ Strata ran on the host, bound to its loopback address, with one model loaded (a 
 
 Not covered: Pi's interactive interface.
 
+### `ezbx doctor` (same day)
+
+On the setup above (isolated inside network, locked-down gateway in front of Strata, a running box container), `ezbx doctor` passed all 21 checks in about 4 seconds.
+
+Then a deliberately broken box: the inside network made with `--internal` alone; a gateway running as root, writable, with its capabilities and a port published to every address; and a box running as root, with its capabilities, also attached to Docker's default bridge, with a file mounted at `/var/run/docker.sock` (an empty file, not the real socket). The doctor failed exactly those seven things, each with a fix. From inside, its port scan of the network's bridge address found the Docker VM's ports open, as the first test above did by hand. The broken box was removed straight after, because its published port made the engine reachable from the network.
+
+The unit tests feed it recorded `docker inspect` output and check that 26 separate faults are each caught by the right check.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.
 - Only TCP and DNS over UDP were tested. Other UDP and ICMP were not.
 - The proxy test used live public sites and public DNS. The address checks themselves are also covered by unit tests that need no network.
-- One machine, one Docker Desktop version. The test should be re-run on upgrades and become part of `ezbx doctor`.
+- One machine, one Docker Desktop version. `ezbx doctor` now repeats the main checks, so run it after every Docker Desktop upgrade.
