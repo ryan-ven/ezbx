@@ -29,7 +29,7 @@ A harness is an agent tool that runs inside the box. Each lives in `harnesses/<i
 
 - `type`: `npm`, `pip`, `binary` or `script`.
 - `lockfile`: required for `npm`. The lockfile in the harness folder.
-- `version` is always exact. Ranges and `latest` will be rejected when manifests are loaded (that check is not built yet), so a rebuild gives the same box.
+- `version` is always exact, such as `1.2.3` or `1.2.3-beta.1`. Ranges, tags and `latest` are refused when manifests are loaded, so a rebuild gives the same box.
 - Pinning the harness alone does not pin what it pulls in. An npm harness therefore ships a `package.json` and a `package-lock.json` in its folder. The lockfile pins every package it pulls in with an integrity hash, and the install uses `npm ci`, which refuses anything that doesn't match. Recording these hashes in `ezbx.lock` as well is not built yet.
 - `script` runs at image build time as an **unprivileged** user, in a separate build stage, and must fail loudly if the binary is missing. The result is copied into the image owned by root, so the agent can run the harness but not change it.
 - Package install scripts are off (`--ignore-scripts`). A harness that really needs one must say which and why in its install script.
@@ -41,6 +41,9 @@ Each entry creates one file inside the box, owned by the unprivileged `agent` us
 ```json
 { "path": "~/.tool/config.json", "mode": "0600", "content": { ... } }
 ```
+
+- `path` starts with `~/` (the agent's home) and has no empty, `.` or `..` parts, so a file can't land outside the home.
+- `mode` is four octal digits. A config file is never executable or writable by others.
 
 `content` is ordinary JSON with placeholders, so the output is always valid JSON and no text templating is needed.
 
@@ -60,7 +63,7 @@ A value that is exactly one placeholder keeps its type, so a number stays a numb
 "models": { "$each": "models", "as": { "id": "${id}", "contextWindow": "${contextWindow}" } }
 ```
 
-This produces one entry per model the engine reports.
+This produces a list with one entry per model the engine reports. A `$each` block has exactly the keys `$each` and `as`, repeats only over `models`, and can't be nested.
 
 **Model facts available inside `as`**
 
@@ -68,10 +71,18 @@ This produces one entry per model the engine reports.
 |---|---|
 | `id` | Read from the engine's model list. |
 | `name` | The id by default. Can be overridden in `ezbx.local.toml`. |
-| `contextWindow` | Read from the engine when it reports one, otherwise a configured default. |
-| `maxTokens` | A configured default. |
-| `reasoning` | A configured default, because engines don't report it consistently. |
-| `input` | `["text"]`, plus `"image"` if the engine reports image input. |
+| `contextWindow` | Read from the engine when it reports one, otherwise a configured default (32768). |
+| `maxTokens` | A configured default (8192), never more than the context size. |
+| `reasoning` | A configured default (off), because engines don't report it. A reasoning model needs it on, and enough `maxTokens` for its reasoning and the answer. |
+| `input` | What the engine reports, otherwise `["text"]`. |
+
+**Errors, not guesses.** An unknown placeholder, a model fact used outside `$each`, a list placed inside a longer string, an unknown `$` key, a placeholder in a key name, or an unfinished `${` all stop rendering with a message. Nothing is ever left unfilled in a file inside the box. If the engine reports no models, there is nothing to configure yet, and rendering says so.
+
+### Rendering
+
+`ezbx harness render <id> --out FOLDER` finds the engine (or uses `--url`), fills in the templates and writes the files under `FOLDER`, laid out like the agent's home (for Pi, `FOLDER/.pi/agent/models.json` and `settings.json`). `--default`, `--context`, `--max-tokens` and `--reasoning` set the choices above. `ezbx init` and `ezbx harness sync` will call the same code.
+
+Tested: Pi's rendered config, with no hand edits, worked inside the box against a real model on Strata, including its read and write tools (see [isolation-test.md](isolation-test.md)).
 
 ### `verified`
 
