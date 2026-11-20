@@ -151,6 +151,13 @@ func (r *Runner) Up(ctx context.Context, p Plan) error {
 	if made {
 		r.say("created the admin token in %s", p.StateDir)
 	}
+	if err := EnsureHosts(p.ApprovedFile()); err != nil {
+		return fmt.Errorf("creating the approved-hosts file: %w", err)
+	}
+	// The gateway refuses a broken file, so say why here instead.
+	if _, err := ReadHosts(p.ApprovedFile()); err != nil {
+		return fmt.Errorf("%w. Fix or remove that line, then run ezbx up again", err)
+	}
 
 	// The gateway, then the box.
 	if _, err := r.run(ctx, p.GatewayArgs()...); err != nil {

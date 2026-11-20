@@ -27,10 +27,15 @@ const usage = `ezbx - EZBox command line tool (early development)
 Usage:
   ezbx up [--config FILE] [--no-doctor]
   ezbx down [--box NAME] [--config FILE]
+  ezbx shell [HARNESS] [--box NAME] [-- HARNESS ARGS...]
+  ezbx net [off|allow|on] [--box NAME]
+  ezbx net allow|remove HOST... [--box NAME]
   ezbx engine detect [--json] [--timeout 500ms] [--url ADDRESS]...
+  ezbx engine use [ID] [--url ADDRESS] [--box NAME]
   ezbx gateway serve [--upstream ADDRESS] [--engine ID] [--listen ADDRESS]
                      [--key-env NAME] [--log FILE]
                      [--proxy ADDRESS] [--network off|allow|on] [--allow HOST]...
+                     [--allow-file FILE]
                      [--admin 127.0.0.1:PORT --admin-token-file FILE]
   ezbx gateway admin [--addr 127.0.0.1:PORT] [--token-file FILE] CALL
   ezbx gateway health [--addr 127.0.0.1:PORT]
@@ -44,7 +49,16 @@ Commands:
                   from the engine's models. Then run the doctor.
   down            Remove the box's containers and networks. The workspace,
                   the state folder and the agent's home volume are kept.
+  shell           Open bash in the box's workspace, or start a harness
+                  there (ezbx shell pi), as the unprivileged agent user.
+  net             Show the network mode, allowed and recently blocked
+                  hosts. net off|allow|on changes the mode until the next
+                  up. net allow HOST approves a host and saves it, so it
+                  stays approved; net remove HOST forgets it.
   engine detect   Find inference engines running on this computer.
+  engine use      Point the running gateway at an engine (found again now,
+                  or at --url) and refresh the harness config in the box.
+                  Lasts until the next up, which uses ezbx.toml.
   gateway serve   Run the gateway: the model route (/v1/... to one engine),
                   and optionally the egress proxy and the admin API.
                   Without --upstream it uses the one engine it detects.
@@ -72,6 +86,15 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) >= 2 && args[0] == "engine" && args[1] == "detect" {
 		return runDetect(args[2:], stdout, stderr)
+	}
+	if len(args) >= 2 && args[0] == "engine" && args[1] == "use" {
+		return runEngineUse(args[2:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "net" {
+		return runNet(args[1:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "shell" {
+		return runShell(args[1:], stdout, stderr)
 	}
 	if len(args) >= 1 && args[0] == "up" {
 		return runUp(args[1:], stdout, stderr)

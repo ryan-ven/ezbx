@@ -151,6 +151,20 @@ var (
 	hostRE    = regexp.MustCompile(`^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
 )
 
+// HostName reports whether s is an allowlist entry: a host name such as
+// registry.npmjs.org, or *.example.com for the names under it. A wildcard
+// over a top-level domain (*.com) is refused, and so is an address such as
+// 10.0.0.1: allowlists hold names, never addresses.
+func HostName(s string) bool {
+	if !hostRE.MatchString(s) {
+		return false
+	}
+	// No top-level domain is all digits, so a last label of digits means
+	// the text is an address (or a broken one).
+	last := s[strings.LastIndexByte(s, '.')+1:]
+	return strings.Trim(last, "0123456789") != ""
+}
+
 // BoxName reports whether s can be used in Docker resource names.
 func BoxName(s string) bool { return boxNameRE.MatchString(s) }
 
@@ -226,7 +240,7 @@ func (b *Box) check(name string) error {
 		return fmt.Errorf("%snetwork %q: use off, allow or on", p, b.Network)
 	}
 	for _, h := range b.Allow {
-		if !hostRE.MatchString(h) {
+		if !HostName(h) {
 			return fmt.Errorf("%sallow %q: use a host name such as registry.npmjs.org or *.example.com", p, h)
 		}
 	}

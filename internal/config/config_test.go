@@ -102,6 +102,7 @@ func TestRefused(t *testing.T) {
 		"bad memory":       {strings.Replace(base, "workspace", "memory = 'lots'\nworkspace", 1), "memory"},
 		"bad network":      {strings.Replace(base, "workspace", "network = 'open'\nworkspace", 1), "network"},
 		"bad allow host":   {strings.Replace(base, "workspace", "allow = ['192.0.2.1:80']\nworkspace", 1), "allow"},
+		"allow address":    {strings.Replace(base, "workspace", "allow = ['192.0.2.1']\nworkspace", 1), "allow"},
 		"no harness":       {strings.Replace(base, `harnesses = ["pi"]`, "harnesses = []", 1), "harnesses is empty"},
 		"readonly":         {base + "[[box.main.readonly]]\npath = '/p'\n", "readonly folders are not supported yet"},
 		"key not env name": {base + "[engine.strata]\nkey_env = 'sk-abc def'\n", "NAME of an environment variable"},
@@ -118,5 +119,20 @@ func TestRefused(t *testing.T) {
 				t.Fatalf("got %v, want an error containing %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestHostName(t *testing.T) {
+	good := []string{"github.com", "registry.npmjs.org", "*.example.com", "a-b.example.co.uk", "1password.com", "x.y2k"}
+	bad := []string{"", "com", "*.com", "*", "10.0.0.1", "192.0.2.1", "1.2.3", "example.com:443", "Example.com", "-x.com", "x-.com", "http://x.com", "x..com", "*.*.com", "::1", "[::1]"}
+	for _, h := range good {
+		if !HostName(h) {
+			t.Errorf("%q should be accepted", h)
+		}
+	}
+	for _, h := range bad {
+		if HostName(h) {
+			t.Errorf("%q should be refused", h)
+		}
 	}
 }

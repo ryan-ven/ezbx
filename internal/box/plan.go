@@ -39,6 +39,7 @@ const (
 	proxyAddr      = "0.0.0.0:3128"
 	adminAddr      = "127.0.0.1:8099"
 	tokenInside    = "/run/ezbx/admin-token"
+	approvedInside = "/run/ezbx/approved-hosts"
 	logDirInside   = "/var/log/ezbx"
 	gatewayAlias   = "gateway"
 	proxyURL       = "http://gateway:3128"
@@ -121,7 +122,8 @@ func (p Plan) GatewayArgs() []string {
 		"--restart", "unless-stopped",
 		// Check health every second while starting, so up doesn't wait 30s.
 		"--health-start-period", "15s", "--health-start-interval", "1s",
-		"-v", p.TokenFile()+":"+tokenInside+":ro")
+		"-v", p.TokenFile()+":"+tokenInside+":ro",
+		"-v", p.ApprovedFile()+":"+approvedInside+":ro")
 	if p.LogOn {
 		a = append(a, "-v", p.LogDir()+":"+logDirInside)
 	}
@@ -142,6 +144,8 @@ func (p Plan) GatewayArgs() []string {
 	for _, h := range p.Allow {
 		a = append(a, "--allow", h)
 	}
+	// Hosts approved with ezbx net allow, read again whenever the gateway starts.
+	a = append(a, "--allow-file", approvedInside)
 	a = append(a, "--admin", adminAddr, "--admin-token-file", tokenInside)
 	if p.LogOn {
 		a = append(a, "--log", logDirInside+"/gateway.log")

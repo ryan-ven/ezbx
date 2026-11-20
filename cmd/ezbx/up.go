@@ -82,7 +82,7 @@ func runDown(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("down", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	cfgFlag := fs.String("config", "", "config file, used to find the box name")
-	name := fs.String("box", "", "box name; default the one in the config, else main")
+	boxFlag := fs.String("box", "", "box name; default the one in the config, else main")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -90,29 +90,17 @@ func runDown(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Usage: ezbx down [--box NAME] [--config FILE]")
 		return 2
 	}
-	if *name == "" {
-		*name = "main"
-		if dirs, err := paths.Default(); err == nil {
-			if cfg, err := config.Load(dirs.ConfigFile(*cfgFlag, os.Getenv)); err == nil {
-				*name, _ = cfg.Only()
-			} else if *cfgFlag != "" {
-				fmt.Fprintln(stderr, err)
-				return 1
-			}
-		}
-	}
-	if !config.BoxName(*name) {
-		fmt.Fprintln(stderr, "A box name is short, lowercase letters, digits and dashes.")
-		return 2
+	t, err := resolveBox(*cfgFlag, *boxFlag)
+	if err != nil {
+		return report(stderr, err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	r := &box.Runner{Docker: dockerIn, Out: stdout}
-	if err := r.Down(ctx, *name); err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
+	if err := r.Down(ctx, t.name); err != nil {
+		return report(stderr, err)
 	}
-	fmt.Fprintf(stdout, "Kept: the workspace, the state folder and the volume %s.\n", box.NamesFor(*name).Home)
+	fmt.Fprintf(stdout, "Kept: the workspace, the state folder (token, log, approved hosts) and the volume %s.\n", box.NamesFor(t.name).Home)
 	return 0
 }
 
@@ -131,22 +119,10 @@ func makePlan(ctx context.Context, cfg *config.Config, dirs paths.Dirs, stdout i
 		return box.Plan{}, err
 	}
 
-	all, err := harness.LoadFS(harnesses.FS)
+	chosen, err := boxHarnesses(b)
 	if err != nil {
-		return box.Plan{}, fmt.Errorf("internal error loading harnesses: %w", err)
+		return box.Plan{}, err
 	}
-	var chosen []harness.Manifest
-	for _, id := range b.Harnesses {
-		m, ok := harness.Find(all, id)
-		if !ok {
-			return box.Plan{}, fmt.Errorf("unknown harness %q", id)
-		}
-		if m.Verified.Status != "verified" {
-			return box.Plan{}, fmt.Errorf("harness %s is not verified yet, so it isn't in the box image", m.Name)
-		}
-		chosen = append(chosen, m)
-	}
-
 	eng, override, err := chooseEngine(ctx, cfg)
 	if err != nil {
 		return box.Plan{}, err
@@ -159,29 +135,9 @@ func makePlan(ctx context.Context, cfg *config.Config, dirs paths.Dirs, stdout i
 		return box.Plan{}, fmt.Errorf("engine.%s.key_env names %s, but that environment variable is empty or not set", eng.ID, override.KeyEnv)
 	}
 	fmt.Fprintf(stdout, "engine: %s at %s, %d model(s)\n", eng.Name, eng.URL, len(eng.Models))
-
-	overrides := map[string]harness.Override{}
-	for id, m := range cfg.Models {
-		overrides[id] = harness.Override{Name: m.Name, ContextWindow: m.ContextWindow, MaxTokens: m.MaxTokens, Reasoning: m.Reasoning}
-	}
-	models := harness.Models(eng.Models, harness.Defaults{}, overrides)
-	if len(models) == 0 {
-		return box.Plan{}, fmt.Errorf("%s lists no models. Load a model, then run ezbx up again", eng.Name)
-	}
-	var files []harness.File
-	seen := map[string]string{}
-	for _, m := range chosen {
-		out, err := harness.Render(m, harness.Values{GatewayBaseURL: box.GatewayBaseURL, GatewayKey: gatewayKey, Models: models})
-		if err != nil {
-			return box.Plan{}, err
-		}
-		for _, f := range out {
-			if other, dup := seen[f.Path]; dup {
-				return box.Plan{}, fmt.Errorf("harnesses %s and %s both write ~/%s", other, m.ID, f.Path)
-			}
-			seen[f.Path] = m.ID
-		}
-		files = append(files, out...)
+	files, err := renderHome(cfg, chosen, eng)
+	if err != nil {
+		return box.Plan{}, err
 	}
 
 	return box.Plan{
@@ -191,6 +147,56 @@ func makePlan(ctx context.Context, cfg *config.Config, dirs paths.Dirs, stdout i
 		Memory: b.Memory, CPUs: b.CPUsFlag(), PIDs: b.PIDs,
 		Harnesses: b.Harnesses, HomeFiles: files,
 	}, nil
+}
+
+// boxHarnesses loads the manifests of a box's harnesses. Only verified ones
+// are in the box image.
+func boxHarnesses(b *config.Box) ([]harness.Manifest, error) {
+	all, err := harness.LoadFS(harnesses.FS)
+	if err != nil {
+		return nil, fmt.Errorf("internal error loading harnesses: %w", err)
+	}
+	var chosen []harness.Manifest
+	for _, id := range b.Harnesses {
+		m, ok := harness.Find(all, id)
+		if !ok {
+			return nil, fmt.Errorf("unknown harness %q", id)
+		}
+		if m.Verified.Status != "verified" {
+			return nil, fmt.Errorf("harness %s is not verified yet, so it isn't in the box image", m.Name)
+		}
+		chosen = append(chosen, m)
+	}
+	return chosen, nil
+}
+
+// renderHome fills in each harness's config from the engine's models and
+// the config's model overrides.
+func renderHome(cfg *config.Config, chosen []harness.Manifest, eng detect.Engine) ([]harness.File, error) {
+	overrides := map[string]harness.Override{}
+	for id, m := range cfg.Models {
+		overrides[id] = harness.Override{Name: m.Name, ContextWindow: m.ContextWindow, MaxTokens: m.MaxTokens, Reasoning: m.Reasoning}
+	}
+	models := harness.Models(eng.Models, harness.Defaults{}, overrides)
+	if len(models) == 0 {
+		return nil, fmt.Errorf("%s lists no models. Load a model, then try again", eng.Name)
+	}
+	var files []harness.File
+	seen := map[string]string{}
+	for _, m := range chosen {
+		out, err := harness.Render(m, harness.Values{GatewayBaseURL: box.GatewayBaseURL, GatewayKey: gatewayKey, Models: models})
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range out {
+			if other, dup := seen[f.Path]; dup {
+				return nil, fmt.Errorf("harnesses %s and %s both write ~/%s", other, m.ID, f.Path)
+			}
+			seen[f.Path] = m.ID
+		}
+		files = append(files, out...)
+	}
+	return files, nil
 }
 
 // chooseEngine finds the engine the config asks for, with its overrides.
@@ -241,7 +247,7 @@ func chooseEngine(ctx context.Context, cfg *config.Config) (detect.Engine, confi
 		if use != "auto" {
 			what = "Engine " + use + " not found"
 		}
-		return detect.Engine{}, config.EngineURL{}, errors.New(what + ". Start it (and load a model), then run ezbx up again. If it runs on an unusual address, set url under [engine.ID] in the config")
+		return detect.Engine{}, config.EngineURL{}, errors.New(what + ". Start it (and load a model), then try again. If it runs on an unusual address, set url under [engine.ID] in ezbx.toml, or use ezbx engine use ID --url ADDRESS on a running box")
 	default:
 		var found []string
 		for _, e := range matches {

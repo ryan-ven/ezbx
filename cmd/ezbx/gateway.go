@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/ryan-ven/ezbx/internal/adapter"
+	"github.com/ryan-ven/ezbx/internal/box"
 	"github.com/ryan-ven/ezbx/internal/detect"
 	"github.com/ryan-ven/ezbx/internal/gateway"
 	"github.com/ryan-ven/ezbx/providers"
@@ -28,6 +29,24 @@ const (
 	defaultAdminTokenFile = "/run/ezbx/admin-token"
 	defaultModelAddr      = "127.0.0.1:8000"
 )
+
+// withAllowFile adds the hosts in file, if one is given, to the --allow
+// hosts. A missing file is an error: it is mounted on purpose, and an empty
+// list would hide that the mount went wrong.
+func withAllowFile(allow []string, file string) ([]string, error) {
+	if file == "" {
+		return allow, nil
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read the allow file: %w", err)
+	}
+	hosts, err := box.ParseHosts(data, file)
+	if err != nil {
+		return nil, err
+	}
+	return append(append([]string{}, allow...), hosts...), nil
+}
 
 func runGateway(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("gateway serve", flag.ContinueOnError)
@@ -42,9 +61,15 @@ func runGateway(args []string, stdout, stderr io.Writer) int {
 	network := fs.String("network", gateway.ModeOff, "network mode for the proxy: off, allow or on")
 	var allow addresses
 	fs.Var(&allow, "allow", "host the proxy allows in allow mode, such as registry.npmjs.org or *.github.com (repeatable)")
+	allowFile := fs.String("allow-file", "", "file of more hosts to allow, one per line (# starts a comment); read at start")
 	adminAddr := fs.String("admin", "", "loopback address for the admin API, such as "+defaultAdminAddr+"; empty means no admin API")
 	tokenFile := fs.String("admin-token-file", defaultAdminTokenFile, "file holding the admin token")
 	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	allow, err := withAllowFile(allow, *allowFile)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
 		return 2
 	}
 
