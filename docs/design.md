@@ -41,7 +41,7 @@ Three parts:
 
 The box sits only on an internal Docker network, which has no route to the internet or to the host. The gateway sits on that network and on a normal one. If the agent ignores proxy settings, it still has no other route. Environment variables alone could be changed by the agent. Network layout can't.
 
-This is the intended design. It has **not been proven yet** on Docker Desktop: an end-to-end test from inside the box must show that only the gateway is reachable (no internet, host, LAN, other containers or outside DNS) before it is relied on. Note that the box can reach every port the gateway container listens on, so anything that must stay private to the host, such as the admin API, cannot simply listen on all of the gateway's interfaces (see [gateway.md](gateway.md), section 2).
+This is the intended design. It has **not been proven yet** on Docker Desktop: an end-to-end test from inside the box must show that only the gateway is reachable (no internet, host, LAN, other containers or outside DNS) before it is relied on. Note that the box can reach every port the gateway container listens on, so anything that must stay private to the host cannot listen on the gateway's network interfaces. The admin API therefore listens only on the gateway container's own loopback and is reached with `docker exec` (decision 7; see [gateway.md](gateway.md), section 2).
 
 ## 3. The gateway
 
@@ -50,7 +50,7 @@ One small service that does four jobs:
 | Job | Detail |
 |---|---|
 | **Model route** | Exposes one stable OpenAI-compatible address inside the box, for example `http://gateway:8000/v1`, and forwards to whichever engine is selected. Switching engines changes one setting and no harness config. |
-| **Key injection** | Keys stay on the host and the agent never sees a real one. Built for the engine's key on the model route. Cloud API keys are still open (question 5 in section 14): the egress proxy never decrypts HTTPS, so it cannot add a key to a tunnelled request. |
+| **Key injection** | Keys stay on the host and the agent never sees a real one. Built for the engine's key on the model route. Cloud API keys will use one reverse route per provider on the gateway (decision 8, not built yet), because the egress proxy never decrypts HTTPS and so cannot add a key to a tunnelled request. |
 | **Egress control** | A forward proxy that applies the current network mode (section 5). |
 | **Request log** | Records model, latency and how each request ended. Token counts and blocked requests are planned. |
 
@@ -164,6 +164,8 @@ It does not fully protect against:
 | 4 | Engines bound to loopback outside Docker Desktop | Version 0.1 supports Docker Desktop only. `ezbx doctor` detects the problem and explains the fix. A proper helper comes later. |
 | 5 | Boxes | One box in 0.1 holding many projects. The config format allows several named boxes so they can be added later without breaking anything. |
 | 6 | Second harness | Pi first, then OpenCode. OpenCode still needs its local-endpoint support and install method verified before it is committed to. |
+| 7 | Reaching the admin API | It listens only on the gateway container's own loopback, with no published port. The CLI calls it through `docker exec`, and a token is still required. The box has no network path to it. See [gateway.md](gateway.md), section 2. |
+| 8 | Cloud API keys | One reverse route per cloud provider on the gateway, built like the model route. The harness points its base address at the gateway, and the gateway adds the key and forwards to that provider's fixed address. Each provider gets a small adapter for its key style. Only API-key providers are covered; account logins that refresh their own tokens are a separate case for later. Built after the isolation proof, since 0.1's first harness uses a local model. |
 
 ## 14. Open questions
 
@@ -171,4 +173,4 @@ It does not fully protect against:
 2. ~~How `ezbx init` presents the choices.~~ Decided in [init-flow.md](init-flow.md): plain prompts first, every question also a flag.
 3. ~~Where snapshots and the gateway log live on disk by default.~~ Decided in [init-flow.md](init-flow.md): per-user config and state folders, never inside the workspace.
 4. How the gateway proves which engine and model it is forwarding to, so `doctor` can confirm the path end to end. (The `X-Ezbx-*` reply headers are a first answer; see [gateway.md](gateway.md).)
-5. How cloud API keys are injected. A tunnelled HTTPS request can't be changed, so one option is a route per cloud provider on the gateway, built like the model route: the harness points its base address at the gateway, and the gateway adds the key and forwards to the real API. Not decided.
+5. ~~How cloud API keys are injected.~~ Decided: a reverse route per cloud provider on the gateway (decision 8).

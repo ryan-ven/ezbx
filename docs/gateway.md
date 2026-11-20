@@ -8,7 +8,7 @@ The gateway is the only door between the box and everything else. This page desc
  box (inside network) ──► gateway ──► engine on the host   (model route)
                               └─────► the internet           (egress proxy, by network mode)
 
- host CLI ──► gateway admin API (host loopback only)
+ host CLI ──docker exec──► gateway admin API (the gateway container's own loopback)
 ```
 
 The gateway runs as its own container, as an unprivileged user, with all capabilities dropped and a read-only root filesystem. It mounts only a read-only config file and a writable state folder for logs.
@@ -19,9 +19,15 @@ The gateway runs as its own container, as an unprivileged user, with all capabil
 |---|---|---|
 | **Model** (`:8000`) | the box | OpenAI-compatible API, forwarded to the selected engine. |
 | **Proxy** (`:3128`) | the box | HTTP forward proxy for internet access, governed by the network mode. |
-| **Admin** (`127.0.0.1:PORT` on the host) | the host only | Control and status for the CLI. |
+| **Admin** (`127.0.0.1:PORT` inside the gateway container) | the host, through `docker exec` | Control and status for the CLI. |
 
-The admin listener is published to the host loopback only and needs a token from the host state folder. Publishing to loopback is not enough on its own, though: the box shares a network with the gateway container, so it can reach any port the gateway listens on there, whatever is published to the host. The admin listener must therefore not listen on the box's network at all (for example, bind only to the gateway's outside address, or use a separate small container), and the token stays required as a second layer. How exactly is not decided yet, and the end-to-end test must show the box can't reach it. Ports are examples and will be configurable.
+The box shares a network with the gateway container, so it can reach any port the gateway listens on there, whatever is published to the host. Publishing the admin port to the host loopback would therefore not keep the box out.
+
+Decided: the admin listener binds only to the loopback address **inside the gateway container**, and no admin port is published at all. Each container has its own network namespace, so the gateway's loopback can't be reached from the box or the host network. The CLI reaches it by running `docker exec ezbx-<box>-gateway ezbx gateway admin <call>`, which starts the `ezbx` binary inside the gateway container (no shell needed) and talks to that loopback. A token from the state folder is still required as a second layer. The Docker healthcheck uses the same pattern.
+
+Options considered and set aside: binding to the gateway's outside-network address only (needs the gateway to find its own address, depends on how Docker publishes ports for a container on two networks, and relies on the box being unable to add routes), and a separate admin container joined to the gateway by a shared socket (more parts for the same result). If `docker exec` turns out too slow, the outside-address option is the fallback.
+
+The end-to-end test must show the box can reach the model and proxy ports and no other port on the gateway. Ports are examples and will be configurable.
 
 ## 3. The model route
 
@@ -175,7 +181,7 @@ Built and tested (`internal/gateway`, run with `ezbx gateway serve`):
 
 Checked against a real engine (Strata): readiness, model list, a normal chat reply and a streamed reply that arrived chunk by chunk. That check was done before the path checks, limits and memory budget were added.
 
-Not built yet: the egress proxy and network modes, the admin API (so `SetUpstream` has no outside control yet), token usage in the log, and the Docker packaging.
+Not built yet: the egress proxy and network modes, the admin API (so `SetUpstream` has no outside control yet), the cloud provider routes (design decision 8), token usage in the log, and the Docker packaging.
 
 ## 12. Milestones
 
