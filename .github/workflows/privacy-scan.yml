@@ -1,0 +1,16 @@
+name: Privacy scan
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan tracked files for secrets and personal data
+        run: sh scripts/privacy-scan.sh --all

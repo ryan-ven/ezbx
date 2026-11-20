@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs the privacy scanner on everything staged for this commit.
+ROOT=$(git rev-parse --show-toplevel)
+exec sh "$ROOT/scripts/privacy-scan.sh" --staged

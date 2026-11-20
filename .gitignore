@@ -1,0 +1,37 @@
+# ---------- Secrets and local configuration (never commit) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+config/local.*
+*.local.json
+*.local.toml
+*.local.yaml
+
+# ---------- Backups and per-user state ----------
+backups/
+pi-config/
+harness-config/
+.githooks/private-terms.txt
+
+# ---------- Agent files (kept private, not published) ----------
+agents/
+AGENTS.md
+agents.md
+CLAUDE.md
+GEMINI.md
+.claude/
+HANDOFF*.md
+
+# ---------- Generated and noisy files ----------
+*.log
+node_modules/
+dist/
+build/
+.DS_Store
+Thumbs.db
