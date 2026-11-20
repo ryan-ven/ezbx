@@ -111,14 +111,14 @@ If a step fails, `init` stops, explains in plain words, and leaves the earlier s
 
 | Kind | Location | Notes |
 |---|---|---|
-| Config | per-user config folder | `ezbx.toml`, plus `ezbx.local.toml` for overrides |
-| State | per-user app-data folder | logs, snapshots, admin token. Never inside the workspace and never mounted into the box. |
+| Config | per-user config folder | `ezbx.toml` |
+| State | per-user state folder, one folder per box | logs, snapshots, admin token. Never inside the workspace and never mounted into the box. |
 | Lock | next to the config | `ezbx.lock`, pinned versions |
 | Workspace | chosen in step 3 | the only writable mount |
 
 `--here` keeps config next to the current folder instead, which suits developers working from a clone of the repo.
 
-The exact folder names per operating system are decided at implementation. State is private to the user and kept out of any mounted folder.
+The folders per operating system are design decision 9 in [design.md](design.md): `%LOCALAPPDATA%\ezbx` on Windows, `~/Library/Application Support/ezbx` on macOS, and the XDG config and state folders on Linux. State is private to the user and kept out of any mounted folder.
 
 ## Docker resource naming
 

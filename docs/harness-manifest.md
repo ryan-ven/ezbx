@@ -70,7 +70,7 @@ This produces a list with one entry per model the engine reports. A `$each` bloc
 | Name | Source |
 |---|---|
 | `id` | Read from the engine's model list. |
-| `name` | The id by default. Can be overridden in `ezbx.local.toml`. |
+| `name` | The id by default. Can be overridden with `name` under `[models."<id>"]` in `ezbx.toml`. |
 | `contextWindow` | Read from the engine when it reports one, otherwise a configured default (32768). |
 | `maxTokens` | A configured default (8192), never more than the context size. |
 | `reasoning` | A configured default (off), because engines don't report it. A reasoning model needs it on, and enough `maxTokens` for its reasoning and the answer. |

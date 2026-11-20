@@ -81,6 +81,17 @@ Then a deliberately broken box: the inside network made with `--internal` alone;
 
 The unit tests feed it recorded `docker inspect` output and check that 26 separate faults are each caught by the right check.
 
+### `ezbx up` and `ezbx down` (same day)
+
+The setup above, made by `ezbx up` from an `ezbx.toml` instead of by hand, with `EZBX_HOME` pointing at a test folder. Network mode `allow` with `registry.npmjs.org`.
+
+- **With the fake engine:** `ezbx up` created both networks, the home volume and the admin token, started the gateway, waited for its healthcheck, then started the box, in about 5 seconds. Pi's config was copied into the home volume as a tar stream and arrived owned by the agent (folders 700, files 600). `pi -p` answered through the gateway. `npm view` worked and `git ls-remote https://github.com/...` was refused with 403 (`not_on_allowlist`). The gateway log was written to `logs/gateway.log` in the state folder. Neither container published a port, and the token was mounted read-only into the gateway only.
+- Running `ezbx up` while the box was up refused and changed nothing. `ezbx down` removed the two containers and two networks and kept the volume, the state folder and the workspace. `ezbx up` again reused the volume (a file left in the agent's home survived) and applied a changed `[models."<id>"]` override (`reasoning`, `max_tokens`).
+- `ezbx doctor` on that box: 20 checks passed, including every check from inside the box, with 1 warning: the doctor looks for engines only on their usual ports, so it didn't see the fake engine on its test port, although the gateway reached it.
+- **With Strata:** `engine.use = "auto"` with both engines running refused, naming both. With `engine.use = "strata"`, detection found it through Strata's status command, and `ezbx up` with the doctor passed **21 of 21**. Pi, with `reasoning` and `max_tokens` set for the model in `ezbx.toml`, answered a plain prompt in about 3 seconds and wrote a file into the workspace with its write tool in about 6.
+
+Not covered: Linux (a gateway that isn't root may not be able to write its log into a folder owned by the host user), a restart of Docker Desktop with the box up (both containers have the restart policy `unless-stopped`), and engines that need a key.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.

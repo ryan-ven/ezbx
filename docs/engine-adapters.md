@@ -28,7 +28,7 @@ Ports are hints, never proof. Different versions and user setups use different p
 
 A server that offers an OpenAI-style model list but matches no specific adapter is reported as an **OpenAI-compatible server** (the `openai` adapter). It works with the gateway, but EZBox doesn't claim to know which engine it is. That adapter adds no ports of its own, and any specific adapter that matches wins over it.
 
-If detection fails, you can give the address yourself in `ezbx.local.toml`.
+If detection fails, you can give the address yourself in `ezbx.toml`, as `url` under `[engine.<id>]`. When `engine.use` names that engine, `ezbx up` checks only that address and leaves other engines on the computer alone.
 
 ### Probes
 

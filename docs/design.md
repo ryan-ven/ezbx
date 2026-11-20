@@ -1,6 +1,6 @@
 # EZBox design (draft 0.1)
 
-Status: first draft. Most of this is a proposal. Built so far: engine detection and the gateway's model route (see [gateway.md](gateway.md), section 11a). Nothing runs in a container yet. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
+Status: first draft. Most of this is a proposal. Built so far: engine detection, the gateway (model route, egress proxy, admin API), config rendering for Pi, `ezbx doctor`, and `ezbx up`/`down`, which create the networks, the gateway and the box from `ezbx.toml`. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
 
 ## 1. Goal
 
@@ -129,7 +129,8 @@ Language: Go, built as one cross-platform binary. The first milestone targets Wi
 ## 10. Configuration and privacy
 
 - `ezbx.toml.example`: committed, placeholders only.
-- `ezbx.local.toml`: gitignored. Holds machine paths and choices.
+- `ezbx.toml`: your real config, in the per-user config folder (decision 9), outside the repo. Unknown settings are refused (decision 10).
+- `ezbx.local.toml`: gitignored, for a config kept inside a clone of the repo (`--here`, later).
 - `ezbx.lock`: committed. Pinned harness and image versions.
 - Secrets live in the host's credential store or a gitignored env file, never in the repo or the image.
 - The repo has a pre-commit and CI privacy scan. Docs use placeholder paths such as `C:\Users\Example`.
@@ -166,10 +167,12 @@ It does not fully protect against:
 | 6 | Second harness | Pi first, then OpenCode. OpenCode still needs its local-endpoint support and install method verified before it is committed to. |
 | 7 | Reaching the admin API | It listens only on the gateway container's own loopback, with no published port. The CLI calls it through `docker exec`, and a token is still required. The box has no network path to it. See [gateway.md](gateway.md), section 2. |
 | 8 | Cloud API keys | One reverse route per cloud provider on the gateway, built like the model route. The harness points its base address at the gateway, and the gateway adds the key and forwards to that provider's fixed address. Each provider gets a small adapter for its key style. Only API-key providers are covered; account logins that refresh their own tokens are a separate case for later. Built after the isolation proof, since 0.1's first harness uses a local model. |
+| 9 | Where config and state live | Windows: `%LOCALAPPDATA%\ezbx` holds `ezbx.toml`, and `%LOCALAPPDATA%\ezbx\state\<box>` holds the admin token and logs (snapshots later). Not the Roaming folder, which a domain profile copies between machines; the token, the logs and the machine's own paths should stay on this one. macOS: `~/Library/Application Support/ezbx`, the same layout. Linux: `$XDG_CONFIG_HOME/ezbx` and `$XDG_STATE_HOME/ezbx` (`~/.config/ezbx` and `~/.local/state/ezbx`). `EZBX_HOME` moves both, for tests. The state folder is never mounted into the box, and the workspace may not overlap it. On Windows the token's file mode means little; what protects it is that the user's profile folder is private to that user and to administrators. |
+| 10 | Config format | TOML, read with [BurntSushi/toml](https://github.com/BurntSushi/toml) (MIT, no dependencies of its own), EZBox's first outside module, pinned in `go.sum`. Unknown settings are refused, so a typo is an error. Sections: `[box.<name>]`, `[engine]` with `[engine.<id>]` overrides, `[models."<id>"]` for facts engines don't report, and `[gateway]`. A parser of our own could replace the module later if we want no dependencies. |
 
 ## 14. Open questions
 
-1. Exact format of `ezbx.toml` (box, engine and harness sections).
+1. ~~Exact format of `ezbx.toml`.~~ Decided: decision 10, and [ezbx.toml.example](../ezbx.toml.example).
 2. ~~How `ezbx init` presents the choices.~~ Decided in [init-flow.md](init-flow.md): plain prompts first, every question also a flag.
 3. ~~Where snapshots and the gateway log live on disk by default.~~ Decided in [init-flow.md](init-flow.md): per-user config and state folders, never inside the workspace.
 4. How the gateway proves which engine and model it is forwarding to, so `doctor` can confirm the path end to end. (The `X-Ezbx-*` reply headers are a first answer; see [gateway.md](gateway.md).)

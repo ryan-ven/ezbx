@@ -104,7 +104,7 @@ The mode is changed through the admin API and takes effect for new connections a
 
 ## 6. Logging
 
-One JSON object per line, written to the per-user state folder (decided in `init-flow.md`). Today `ezbx gateway serve` writes to standard output or to the file given with `--log`.
+One JSON object per line, written to the per-user state folder (decided in `init-flow.md`). `ezbx gateway serve` writes to standard output or to the file given with `--log`. A gateway started by `ezbx up` writes to `logs/gateway.log` in the box's state folder, unless `log = false` under `[gateway]`.
 
 | Field | Meaning |
 |---|---|
