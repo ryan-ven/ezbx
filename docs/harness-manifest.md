@@ -24,13 +24,15 @@ A harness is an agent tool that runs inside the box. Each lives in `harnesses/<i
 ### `install`
 
 ```json
-{ "type": "npm", "package": "name", "version": "1.2.3", "script": "install.sh" }
+{ "type": "npm", "package": "name", "version": "1.2.3", "script": "install.sh", "lockfile": "package-lock.json" }
 ```
 
 - `type`: `npm`, `pip`, `binary` or `script`.
+- `lockfile`: required for `npm`. The lockfile in the harness folder.
 - `version` is always exact. Ranges and `latest` will be rejected when manifests are loaded (that check is not built yet), so a rebuild gives the same box.
-- Pinning the harness alone does not pin what it pulls in. For npm, a later version will ship a lockfile per harness and record integrity hashes in `ezbx.lock` (not built yet).
-- `script` runs at image build time as root and must fail loudly if the binary is missing.
+- Pinning the harness alone does not pin what it pulls in. An npm harness therefore ships a `package.json` and a `package-lock.json` in its folder. The lockfile pins every package it pulls in with an integrity hash, and the install uses `npm ci`, which refuses anything that doesn't match. Recording these hashes in `ezbx.lock` as well is not built yet.
+- `script` runs at image build time as an **unprivileged** user, in a separate build stage, and must fail loudly if the binary is missing. The result is copied into the image owned by root, so the agent can run the harness but not change it.
+- Package install scripts are off (`--ignore-scripts`). A harness that really needs one must say which and why in its install script.
 
 ### `config`
 
