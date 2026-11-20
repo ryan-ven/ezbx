@@ -144,6 +144,21 @@ Errors use the OpenAI-style error body so harnesses display them sensibly.
 - Table tests for the allowlist and the blocked ranges, including hostnames that resolve to private addresses.
 - An end-to-end run with Docker: the box can reach the model route and nothing else when the mode is `off`.
 
+## 11a. Implementation status
+
+Built and tested (`internal/gateway`, run with `ezbx gateway serve`):
+
+- Model route for `/v1/...` only, to one fixed upstream, with address checks.
+- Streaming without buffering, and cancellation of the engine request when the client leaves.
+- Key injection (the box's placeholder is dropped), and no `X-Forwarded-For`.
+- `X-Ezbx-Engine`, `X-Ezbx-Model` and `X-Ezbx-Request-Id` on every reply.
+- `/healthz` and `/readyz`, OpenAI-style errors, a request size limit and JSON logging with no prompts, replies or keys.
+- Switching the upstream at run time in code (`SetUpstream`).
+
+Checked against a real engine (Strata): readiness, model list, a normal chat reply and a streamed reply that arrived chunk by chunk.
+
+Not built yet: the egress proxy and network modes, the admin API (so `SetUpstream` has no outside control yet), token usage in the log, and the Docker packaging.
+
 ## 12. Milestones
 
 - **0.1:** model route, streaming, key injection, response headers, `off` and `on` modes, logging, health, admin API.
