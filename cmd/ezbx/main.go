@@ -32,6 +32,8 @@ Usage:
                      [--admin 127.0.0.1:PORT --admin-token-file FILE]
   ezbx gateway admin [--addr 127.0.0.1:PORT] [--token-file FILE] CALL
   ezbx gateway health [--addr 127.0.0.1:PORT]
+  ezbx harness render ID --out FOLDER [--url ADDRESS] [--default MODEL]
+                     [--context N] [--max-tokens N] [--reasoning]
 
 Commands:
   engine detect   Find inference engines running on this computer.
@@ -47,6 +49,8 @@ Commands:
                     allow HOST
   gateway health  Exit 0 if the gateway answers /healthz, for Docker's
                   healthcheck.
+  harness render  Write a harness's config files, filled in from the
+                  engine's model list, laid out like the agent's home.
 `
 
 func main() {
@@ -57,6 +61,9 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) >= 2 && args[0] == "engine" && args[1] == "detect" {
 		return runDetect(args[2:], stdout, stderr)
+	}
+	if len(args) >= 2 && args[0] == "harness" && args[1] == "render" {
+		return runHarnessRender(args[2:], stdout, stderr)
 	}
 	if len(args) >= 2 && args[0] == "gateway" {
 		switch args[1] {

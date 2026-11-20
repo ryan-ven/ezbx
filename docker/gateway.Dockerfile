@@ -12,6 +12,7 @@ COPY go.mod ./
 COPY cmd ./cmd
 COPY internal ./internal
 COPY providers ./providers
+COPY harnesses ./harnesses
 # CGO off gives a static binary that needs no C library at run time.
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -buildid=" -o /out/ezbx ./cmd/ezbx
 
