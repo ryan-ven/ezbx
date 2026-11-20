@@ -29,6 +29,8 @@ GEMINI.md
 HANDOFF*.md
 
 # ---------- Generated and noisy files ----------
+*.exe
+/ezbx
 *.log
 node_modules/
 dist/

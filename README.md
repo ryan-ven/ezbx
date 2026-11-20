@@ -4,7 +4,11 @@
 
 EZBox is a planned one-click setup for running AI coding and agent tools inside a sandboxed container, while the model itself keeps running on your own machine.
 
-> **Status: early design. Nothing here is usable yet.** This repository currently holds the project skeleton, the license and the privacy checks. The sections below describe what I intend to build, not what exists.
+> **Status: early development. Most of this is still design.** The sections below describe what I intend to build. What works today is one command, `ezbx engine detect`, which finds inference engines running on your computer. Designs are in [docs/](docs/).
+
+```text
+go run ./cmd/ezbx engine detect
+```
 
 ## The idea
 
