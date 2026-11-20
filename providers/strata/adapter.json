@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "id": "strata",
+  "name": "Strata",
+
+  "detect": {
+    "hintPorts": [8080],
+    "cli": { "command": ["strata", "launch", "--status", "--output", "json"], "reads": "running[].url" },
+    "probes": [
+      { "path": "/health", "expect": { "hasFields": ["max_context", "model"] } },
+      { "path": "/v1/models", "expect": { "hasFields": ["data[].status.value"] } }
+    ]
+  },
+
+  "openai": {
+    "basePath": "/v1",
+    "modelsPath": "/v1/models",
+    "chatPath": "/v1/chat/completions"
+  },
+
+  "models": {
+    "id": "data[].id",
+    "contextWindow": "data[].meta.n_ctx",
+    "input": "data[].architecture.input_modalities",
+    "loaded": "data[].status.value == loaded"
+  },
+
+  "auth": {
+    "mode": "optional-bearer",
+    "keyEnv": null,
+    "note": "Strata can require a key (its --api-key option). /health reports whether one is set."
+  },
+
+  "capabilities": ["chat", "vision"],
+
+  "control": {
+    "status": { "command": ["strata", "launch", "--status", "--output", "json"] },
+    "start": { "command": ["strata", "launch", "--preset", "{preset}", "--yes", "--no-tui"] },
+    "stop": { "command": ["strata", "launch", "--stop"] },
+    "unload": null
+  },
+
+  "verified": {
+    "status": "probed-live",
+    "on": "2026-11-20",
+    "notes": "Detection fields and control commands were read from a running install and its own help text. The default port 8080 comes from that help text. Users often pick another port, so the CLI status is the preferred way to find the address."
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "id": "ollama",
+  "name": "Ollama",
+
+  "detect": {
+    "hintPorts": [11434],
+    "cli": null,
+    "probes": [
+      { "path": "/api/ps", "expect": { "hasFields": ["models"] } },
+      { "path": "/v1/models", "expect": { "hasFields": ["data[].id"] } }
+    ]
+  },
+
+  "openai": {
+    "basePath": "/v1",
+    "modelsPath": "/v1/models",
+    "chatPath": "/v1/chat/completions"
+  },
+
+  "models": {
+    "id": "data[].id",
+    "contextWindow": null,
+    "input": null,
+    "loaded": "/api/ps models[].name"
+  },
+
+  "auth": {
+    "mode": "ignored",
+    "keyEnv": null,
+    "note": "Ollama's docs use a placeholder key and say the server ignores it."
+  },
+
+  "capabilities": ["chat"],
+
+  "control": {
+    "status": null,
+    "start": null,
+    "stop": null,
+    "unload": {
+      "http": { "method": "POST", "path": "/api/generate", "body": { "model": "{model}", "keep_alive": 0 } },
+      "note": "From a third-party guide. Confirm against the Ollama API reference."
+    }
+  },
+
+  "verified": {
+    "status": "docs-only",
+    "on": null,
+    "notes": "The OpenAI-compatible base path and the placeholder key are from Ollama's official docs, which describe a subset of the OpenAI API. Port 11434, /api/ps and the keep_alive unload come from third-party guides and need confirming."
+  }
+}

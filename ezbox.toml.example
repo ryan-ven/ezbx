@@ -20,7 +20,9 @@ use = "auto"                      # auto | strata | lmstudio | ollama | llamacpp
 
 # Only set an address if automatic detection fails.
 # [engine.strata]
-# url = "http://127.0.0.1:PORT"
+# url     = "http://127.0.0.1:PORT"
+# key_env = "STRATA_API_KEY"      # NAME of an environment variable holding the key,
+#                                 # never the key itself
 
 [gateway]
 log = true                        # keep a request log

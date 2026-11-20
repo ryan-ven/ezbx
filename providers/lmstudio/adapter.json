@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "id": "lmstudio",
+  "name": "LM Studio",
+
+  "detect": {
+    "hintPorts": [1234],
+    "cli": null,
+    "probes": [
+      { "path": "/v1/models", "expect": { "hasFields": ["data[].id"] } },
+      { "path": "/api/v0/models", "expect": { "hasFields": ["data[].id"] }, "optional": true }
+    ]
+  },
+
+  "openai": {
+    "basePath": "/v1",
+    "modelsPath": "/v1/models",
+    "chatPath": "/v1/chat/completions"
+  },
+
+  "models": {
+    "id": "data[].id",
+    "contextWindow": null,
+    "input": null,
+    "loaded": null
+  },
+
+  "auth": {
+    "mode": "none",
+    "keyEnv": null,
+    "note": "The server is documented as unauthenticated and listens on localhost by default. Binding it to all interfaces exposes it to the network."
+  },
+
+  "capabilities": ["chat"],
+
+  "control": {
+    "status": null,
+    "start": { "command": ["lms", "server", "start"] },
+    "stop": { "command": ["lms", "server", "stop"] },
+    "unload": { "command": ["lms", "unload", "--all"], "note": "Flag name unconfirmed." }
+  },
+
+  "verified": {
+    "status": "docs-only",
+    "on": null,
+    "notes": "Port 1234 and the OpenAI-style API are from LM Studio's server docs. The lms subcommands are listed by a community index of its CLI. Confirm each command with `lms --help` and the extra model fields from the native REST API before relying on them."
+  }
+}

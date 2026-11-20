@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "id": "llamacpp",
+  "name": "llama.cpp server",
+
+  "detect": {
+    "hintPorts": [8080, 9931],
+    "cli": null,
+    "probes": [
+      { "path": "/health", "expect": { "hasFields": ["status"] } },
+      { "path": "/v1/models", "expect": { "hasFields": ["data[].id"] } }
+    ]
+  },
+
+  "openai": {
+    "basePath": "/v1",
+    "modelsPath": "/v1/models",
+    "chatPath": "/v1/chat/completions"
+  },
+
+  "models": {
+    "id": "data[].id",
+    "contextWindow": null,
+    "input": null,
+    "loaded": null
+  },
+
+  "auth": {
+    "mode": "optional-bearer",
+    "keyEnv": null,
+    "note": "The server can require a key through its --api-key option. The health route is documented as public."
+  },
+
+  "capabilities": ["chat"],
+
+  "control": {
+    "status": null,
+    "start": null,
+    "stop": null,
+    "unload": null
+  },
+
+  "verified": {
+    "status": "docs-only",
+    "on": null,
+    "notes": "Sources disagree on the default port: most say 8080, two say current builds use 9931. EZBox treats both as hints and identifies the server by its responses. Detection only: you start and stop it yourself."
+  }
+}
