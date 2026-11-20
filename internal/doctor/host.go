@@ -22,8 +22,8 @@ type Docker func(ctx context.Context, args ...string) ([]byte, error)
 type HostConfig struct {
 	Box        string // box name; containers are ezbx-<box>-gateway and so on
 	Docker     Docker
-	Detect     func(ctx context.Context) detect.Result // finds engines on this computer
-	LocalAddrs func() []string                         // this computer's own non-loopback addresses
+	Detect     func(ctx context.Context, extra []string) detect.Result // finds engines on this computer, also checking the extra addresses
+	LocalAddrs func() []string                                         // this computer's own non-loopback addresses
 }
 
 // Docker resource names for a box.
@@ -124,7 +124,16 @@ func Run(ctx context.Context, cfg HostConfig) Report {
 	const ge = "Engine"
 	var engines []detect.Engine
 	if cfg.Detect != nil {
-		res := cfg.Detect(ctx)
+		// Also look where the gateway was started to forward, so an engine on
+		// an unusual port is found too.
+		var extra []string
+		var pre containerInfo
+		if cfg.inspect(ctx, "container", gwName, &pre) == nil {
+			if a := hostSide(cmdFlags(pre.Config.Cmd)["--upstream"]); a != "" {
+				extra = append(extra, a)
+			}
+		}
+		res := cfg.Detect(ctx, extra)
 		engines = res.Engines
 		if len(engines) == 0 {
 			r.add(ge, "an engine is running", Warn, "none found", "Start your inference engine. The box works without one, but has no model.")
@@ -408,6 +417,26 @@ func upstreamMatches(upstream string, engines []detect.Engine) (Status, string, 
 	}
 	return Warn, "the gateway forwards to port " + u.Port() + ", but no engine was found there",
 		"Point the gateway at the running engine: docker exec ezbx-<box>-gateway /ezbx gateway admin engine http://host.docker.internal:PORT ID"
+}
+
+// hostSide turns the gateway's upstream into the same engine's address as
+// seen from this computer: Docker Desktop's host alias is this computer's
+// loopback. Other addresses are kept. It returns "" if there is nothing to
+// check.
+func hostSide(upstream string) string {
+	u, err := url.Parse(upstream)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return ""
+	}
+	if strings.EqualFold(u.Hostname(), "host.docker.internal") {
+		port := u.Port()
+		if port == "" {
+			port = map[string]string{"http": "80", "https": "443"}[u.Scheme]
+		}
+		u.Host = net.JoinHostPort("127.0.0.1", port)
+	}
+	u.Path, u.RawQuery, u.Fragment = "", "", ""
+	return u.String()
 }
 
 // cmdFlags reads --name value pairs from a container's command.

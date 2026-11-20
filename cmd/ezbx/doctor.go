@@ -42,8 +42,8 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 	cfg := doctor.HostConfig{
 		Box:    *box,
 		Docker: dockerCLI,
-		Detect: func(ctx context.Context) detect.Result {
-			return (&detect.Detector{Adapters: adapters, Run: runCommand}).Detect(ctx, nil)
+		Detect: func(ctx context.Context, extra []string) detect.Result {
+			return (&detect.Detector{Adapters: adapters, Run: runCommand}).Detect(ctx, extra)
 		},
 		LocalAddrs: localAddrs,
 	}

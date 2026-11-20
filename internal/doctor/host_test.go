@@ -95,14 +95,75 @@ func (f *fakeDocker) run(_ context.Context, args ...string) ([]byte, error) {
 }
 
 func runWith(f *fakeDocker) Report {
+	return runEngines(f, []detect.Engine{{ID: "strata", Name: "Strata", URL: "http://127.0.0.1:53000", Models: []detect.Model{{ID: "m"}}}}, nil, nil)
+}
+
+// runEngines runs the doctor with engines found on the usual ports, plus
+// engines found only when their address is given as an extra address. The
+// extra addresses the doctor asked about are written to asked.
+func runEngines(f *fakeDocker, usual []detect.Engine, onlyAt map[string]detect.Engine, asked *[]string) Report {
 	return Run(context.Background(), HostConfig{
 		Box:    "t",
 		Docker: f.run,
-		Detect: func(context.Context) detect.Result {
-			return detect.Result{Engines: []detect.Engine{{ID: "strata", Name: "Strata", URL: "http://127.0.0.1:53000", Models: []detect.Model{{ID: "m"}}}}}
+		Detect: func(_ context.Context, extra []string) detect.Result {
+			if asked != nil {
+				*asked = append(*asked, extra...)
+			}
+			res := detect.Result{Engines: append([]detect.Engine(nil), usual...)}
+			for _, a := range extra {
+				if e, ok := onlyAt[a]; ok {
+					res.Engines = append(res.Engines, e)
+				}
+			}
+			return res
 		},
 		LocalAddrs: func() []string { return []string{"192.0.2.10"} },
 	})
+}
+
+// An engine on an unusual port is found through the gateway's upstream.
+func TestEngineFoundThroughGatewayUpstream(t *testing.T) {
+	f := goodDocker()
+	gw := f.ctrs["ezbx-t-gateway"]["Config"].(map[string]any)
+	gw["Cmd"] = []string{"gateway", "serve", "--listen", "0.0.0.0:8000", "--upstream", "http://host.docker.internal:18080", "--proxy", "0.0.0.0:3128", "--network", "off", "--admin", "127.0.0.1:8099"}
+	f.exec["status"] = `{"engine":"openai","upstream":"http://host.docker.internal:18080","network":{"mode":"off","allow":[]}}`
+	fake := detect.Engine{ID: "openai", Name: "OpenAI-compatible server", URL: "http://127.0.0.1:18080", Models: []detect.Model{{ID: "m"}}}
+	var asked []string
+	r := runEngines(f, nil, map[string]detect.Engine{"http://127.0.0.1:18080": fake}, &asked)
+	if strings.Join(asked, ",") != "http://127.0.0.1:18080" {
+		t.Errorf("asked about %v", asked)
+	}
+	for _, name := range []string{"an engine is running", "forwards to the running engine"} {
+		if c := find(t, r, name); c.Status != Pass {
+			t.Errorf("%s: %s %s", name, c.Status, c.Detail)
+		}
+	}
+
+	// Without a gateway there is nothing extra to ask about.
+	f = goodDocker()
+	delete(f.ctrs, "ezbx-t-gateway")
+	asked = nil
+	runEngines(f, nil, nil, &asked)
+	if len(asked) != 0 {
+		t.Errorf("asked about %v with no gateway", asked)
+	}
+}
+
+func TestHostSide(t *testing.T) {
+	cases := map[string]string{
+		"http://host.docker.internal:18080":        "http://127.0.0.1:18080",
+		"http://HOST.docker.internal:18080/v1?x=1": "http://127.0.0.1:18080",
+		"http://host.docker.internal":              "http://127.0.0.1:80",
+		"http://192.0.2.10:18080":                  "http://192.0.2.10:18080",
+		"":                                         "",
+		"host.docker.internal:18080":               "",
+		"ftp://host.docker.internal:21":            "",
+	}
+	for in, want := range cases {
+		if got := hostSide(in); got != want {
+			t.Errorf("%q: got %q, want %q", in, got, want)
+		}
+	}
 }
 
 func find(t *testing.T, r Report, name string) Check {
