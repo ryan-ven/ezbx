@@ -1,0 +1,26 @@
+# ezbox.toml.example
+# Copy this file to ezbox.local.toml and edit it. The local copy is ignored by
+# git, so your real paths and choices never reach the public repository.
+version = 1
+
+[box.main]
+workspace = "~/ezbox/workspace"   # the ONLY folder the agent can write to
+runtime   = "docker"
+memory    = "8g"
+network   = "off"                 # off | allow | on
+harnesses = ["pi"]                # more are added once their install is verified
+
+# Optional: folders the agent may READ but never change.
+[[box.main.readonly]]
+path = "~/projects"
+mask = [".env", "*.pem"]          # these stay unreadable inside the box
+
+[engine]
+use = "auto"                      # auto | strata | lmstudio | ollama | llamacpp
+
+# Only set an address if automatic detection fails.
+# [engine.strata]
+# url = "http://127.0.0.1:PORT"
+
+[gateway]
+log = true                        # keep a request log
