@@ -49,7 +49,7 @@ Responses that stream (server-sent events) are forwarded as they arrive, with no
 ### Authentication
 
 - **Box to gateway:** a placeholder key. It is not a real credential and exists because some harnesses insist on one.
-- **Gateway to engine:** if the engine needs a key, the gateway adds it. Today the key is read at start from an environment variable whose name is given with `--key-env` (whether to also use the operating system's credential store is open question 1 in `init-flow.md`). It is never written into an image, a config the box can read, or a log.
+- **Gateway to engine:** if the engine needs a key, the gateway adds it. Today the key is read at start from an environment variable whose name is given with `--key-env` (environment variables only in 0.1, decided in `init-flow.md`). It is never written into an image, a config the box can read, or a log. **Known weak spot:** `ezbx up` passes it to the gateway container as an environment variable, so it shows in plain text in `docker inspect` of the gateway, which people tend to paste into bug reports. A key file in the state folder, mounted read-only into the gateway only, would avoid that; to do before engines with keys are tested.
 
 ### Model list
 

@@ -50,7 +50,7 @@ If the Docker engine isn't running, `init` says so and offers to wait while you 
 
 2. If one is found, it's the default answer. If several, you choose. If none, you may pick "I'll start one later" and `init` finishes with a note, because the box works without a running model and the gateway just reports "engine not reachable".
 3. If an engine can be started by its adapter (`control.start`), offer to do so. It always asks first.
-4. If the engine requires a key, ask for the **name of an environment variable** that holds it, or offer to store it in the operating system's credential store. The key is never typed into a file.
+4. If the engine requires a key, ask for the **name of an environment variable** that holds it. The key is never typed into a file. (The operating system's credential store comes after 0.1; decided below.)
 
 ### 2. Harnesses
 
@@ -71,7 +71,7 @@ Default `off`. A one-line explanation of each mode is shown. If `allow` is chose
 
 ### 5. Limits
 
-Memory defaults to a share of the machine's memory, capped, so the box can't take over a gaming or work session. CPU and process limits have sensible defaults. All are editable, and the review screen shows them.
+Memory defaults to **half of the memory Docker has**, rounded down to whole gigabytes, at least 2 GB and at most 8 GB, so the box can't take over a gaming or work session. On Docker Desktop the box runs inside Docker's own virtual machine, so its memory (`docker info`), not the computer's, is what counts. There is no CPU limit by default, and the process limit is 512. All are editable, and the review screen shows them.
 
 ### 6. Review
 
@@ -141,9 +141,11 @@ All names start with `ezbx-` and include the box name, for example `ezbx-main-ga
 - **Plain prompts first**, with every question also available as a flag (closes open question 2 in `design.md`).
 - **Config and state live in per-user folders, not in the repo and not in the workspace** (closes open question 3).
 
+- **Keys come from environment variables only in 0.1.** `init` asks for the name of the variable. Using the operating system's credential store (a different interface on each system) comes later.
+- **The default memory limit** is half of Docker's memory, rounded down to whole gigabytes, from 2 to 8 GB (step 5).
+- **`init` never starts Docker Desktop.** It says Docker isn't running, offers to wait, and carries on when Docker answers. Starting it would need to know where Docker Desktop is installed on each system.
+- **`init --plan` makes no network calls.** It lists which images are already on the computer and which would be downloaded. Whether a download works shows when the plan is applied.
+
 ## Open questions
 
-1. Credential storage: use the operating system's credential store directly, or only support environment variables in 0.1?
-2. How to pick the default memory limit (a fraction of installed memory, with a cap).
-3. Whether `init` should offer to start Docker Desktop itself on Windows, or only wait for the user to do it.
-4. Whether `ezbx init --plan` should also pre-check that images can be pulled.
+None at the moment.

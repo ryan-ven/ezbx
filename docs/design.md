@@ -133,7 +133,7 @@ Language: Go, built as one cross-platform binary. The first milestone targets Wi
 - `ezbx.toml`: your real config, in the per-user config folder (decision 9), outside the repo. Unknown settings are refused (decision 10).
 - `ezbx.local.toml`: gitignored, for a config kept inside a clone of the repo (`--here`, later).
 - `ezbx.lock`: committed. Pinned harness and image versions.
-- Secrets live in the host's credential store or a gitignored env file, never in the repo or the image.
+- Secrets live in environment variables on the host in 0.1 (the host's credential store later), never in the repo or the image.
 - The repo has a pre-commit and CI privacy scan. Docs use placeholder paths such as `C:\Users\Example`.
 
 ## 11. Threat model (summary, to expand)
