@@ -1,7 +1,7 @@
 // Command ezbx is the EZBox command line tool.
 //
-// So far it can find inference engines (ezbx engine detect) and run the
-// gateway's model route (ezbx gateway serve).
+// It starts and stops a box (ezbx up, ezbx down), finds inference engines
+// (ezbx engine detect), runs the gateway (ezbx gateway serve) and more.
 package main
 
 import (
@@ -25,6 +25,8 @@ import (
 const usage = `ezbx - EZBox command line tool (early development)
 
 Usage:
+  ezbx up [--config FILE] [--no-doctor]
+  ezbx down [--box NAME] [--config FILE]
   ezbx engine detect [--json] [--timeout 500ms] [--url ADDRESS]...
   ezbx gateway serve [--upstream ADDRESS] [--engine ID] [--listen ADDRESS]
                      [--key-env NAME] [--log FILE]
@@ -37,6 +39,11 @@ Usage:
   ezbx doctor [--box NAME] [--json]
 
 Commands:
+  up              Start the box described in ezbx.toml: its networks, the
+                  gateway and the box, with the harness config filled in
+                  from the engine's models. Then run the doctor.
+  down            Remove the box's containers and networks. The workspace,
+                  the state folder and the agent's home volume are kept.
   engine detect   Find inference engines running on this computer.
   gateway serve   Run the gateway: the model route (/v1/... to one engine),
                   and optionally the egress proxy and the admin API.
@@ -65,6 +72,12 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) >= 2 && args[0] == "engine" && args[1] == "detect" {
 		return runDetect(args[2:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "up" {
+		return runUp(args[1:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "down" {
+		return runDown(args[1:], stdout, stderr)
 	}
 	if len(args) >= 1 && args[0] == "doctor" {
 		return runDoctor(args[1:], stdout, stderr)

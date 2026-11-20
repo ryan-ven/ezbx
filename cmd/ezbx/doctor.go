@@ -1,19 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net"
-	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/ryan-ven/ezbx/internal/adapter"
+	"github.com/ryan-ven/ezbx/internal/config"
 	"github.com/ryan-ven/ezbx/internal/detect"
 	"github.com/ryan-ven/ezbx/internal/doctor"
 	"github.com/ryan-ven/ezbx/providers"
@@ -31,7 +29,7 @@ func runDoctor(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if !boxName(*box) {
+	if !config.BoxName(*box) {
 		fmt.Fprintln(stderr, "A box name is short, lowercase letters, digits and dashes.")
 		return 2
 	}
@@ -84,32 +82,10 @@ func runDoctorInside(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func boxName(s string) bool {
-	if s == "" || len(s) > 32 {
-		return false
-	}
-	for _, c := range s {
-		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
-			return false
-		}
-	}
-	return true
-}
-
 // dockerCLI runs the docker command. What it prints on standard error comes
 // back in the error, so failures can be explained.
 func dockerCLI(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "docker", args...)
-	var out, errOut bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &errOut
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(errOut.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return out.Bytes(), errors.New(msg)
-	}
-	return out.Bytes(), nil
+	return dockerIn(ctx, nil, args...)
 }
 
 // localAddrs lists this computer's own addresses (not loopback or

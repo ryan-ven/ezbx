@@ -5,7 +5,9 @@
 
 FROM golang:1.27.4 AS build
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
+# Fetch the modules listed in go.sum first; their hashes are checked.
+RUN go mod download
 COPY tools ./tools
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -buildid=" -o /out/isoprobe ./tools/isoprobe
 

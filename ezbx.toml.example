@@ -1,28 +1,48 @@
 # ezbx.toml.example
-# Copy this file to ezbx.local.toml and edit it. The local copy is ignored by
-# git, so your real paths and choices never reach the public repository.
+# Copy this file to your EZBox config folder as ezbx.toml and edit it:
+#   Windows: %LOCALAPPDATA%\ezbx\ezbx.toml
+#   macOS:   ~/Library/Application Support/ezbx/ezbx.toml
+#   Linux:   ~/.config/ezbx/ezbx.toml
+# Or point at it with --config FILE or the EZBX_CONFIG environment variable.
+# Unknown settings are refused, so a typo is an error rather than ignored.
+#
+# Windows paths: use single quotes ('C:\Users\Example\ezbx') or forward
+# slashes, because a backslash inside double quotes starts an escape.
 version = 1
 
-[box.main]
-workspace = "~/ezbx/workspace"   # the ONLY folder the agent can write to
-runtime   = "docker"
-memory    = "8g"
+[box.main]                        # name: lowercase letters, digits and dashes
+workspace = '~/ezbx/workspace'    # the ONLY folder the agent can write to
+memory    = "4g"                  # default 4g
+# cpus    = 4                     # default: no limit
+# pids    = 512                   # process limit, default 512
 network   = "off"                 # off | allow | on
+# allow   = ["registry.npmjs.org"] # hosts allowed in "allow" mode, besides the harnesses' own
 harnesses = ["pi"]                # more are added once their install is verified
 
-# Optional: folders the agent may READ but never change.
+# Optional, NOT SUPPORTED YET: folders the agent may READ but never change.
+# EZBox refuses to start while these are set, until hiding secret files in
+# them is built.
 [[box.main.readonly]]
 path = "~/projects"
-mask = [".env", "*.pem"]          # these stay unreadable inside the box
+mask = [".env", "*.pem"]          # these will stay unreadable inside the box
 
 [engine]
-use = "auto"                      # auto | strata | lmstudio | ollama | llamacpp
+use = "auto"                      # auto | strata | lmstudio | ollama | llamacpp | openai
 
-# Only set an address if automatic detection fails.
+# Only set these if automatic detection fails.
 # [engine.strata]
 # url     = "http://127.0.0.1:PORT"
 # key_env = "STRATA_API_KEY"      # NAME of an environment variable holding the key,
 #                                 # never the key itself
+# host    = "localhost:PORT"      # Host header to send, for engines that check it
+
+# Facts about a model that engines don't report. Use the id from
+# "ezbx engine detect".
+# [models."big-model"]
+# reasoning  = true               # a reasoning model needs this...
+# max_tokens = 8192               # ...and room for its answer
+# context    = 32768
+# name       = "Big model"
 
 [gateway]
-log = true                        # keep a request log
+log = true                        # keep a request log in the state folder
