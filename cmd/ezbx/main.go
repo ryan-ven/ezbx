@@ -1,6 +1,7 @@
 // Command ezbx is the EZBox command line tool.
 //
-// So far it can do one thing: find inference engines (ezbx engine detect).
+// So far it can find inference engines (ezbx engine detect) and run the
+// gateway's model route (ezbx gateway serve).
 package main
 
 import (

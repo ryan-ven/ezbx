@@ -28,7 +28,8 @@ A harness is an agent tool that runs inside the box. Each lives in `harnesses/<i
 ```
 
 - `type`: `npm`, `pip`, `binary` or `script`.
-- `version` is always exact. Ranges and `latest` are rejected, so a rebuild gives the same box.
+- `version` is always exact. Ranges and `latest` will be rejected when manifests are loaded (that check is not built yet), so a rebuild gives the same box.
+- Pinning the harness alone does not pin what it pulls in. For npm, a later version will ship a lockfile per harness and record integrity hashes in `ezbx.lock` (not built yet).
 - `script` runs at image build time as root and must fail loudly if the binary is missing.
 
 ### `config`

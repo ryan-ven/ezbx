@@ -1,6 +1,6 @@
 # EZBox design (draft 0.1)
 
-Status: first draft. Everything here is a proposal, and nothing is built yet. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
+Status: first draft. Most of this is a proposal. Built so far: engine detection and the gateway's model route (see [gateway.md](gateway.md), section 11a). Nothing runs in a container yet. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
 
 ## 1. Goal
 
@@ -41,6 +41,8 @@ Three parts:
 
 The box sits only on an internal Docker network, which has no route to the internet or to the host. The gateway sits on that network and on a normal one. If the agent ignores proxy settings, it still has no other route. Environment variables alone could be changed by the agent. Network layout can't.
 
+This is the intended design. It has **not been proven yet** on Docker Desktop: an end-to-end test from inside the box must show that only the gateway is reachable (no internet, host, LAN, other containers or outside DNS) before it is relied on. Note that the box can reach every port the gateway container listens on, so anything that must stay private to the host, such as the admin API, cannot simply listen on all of the gateway's interfaces (see [gateway.md](gateway.md), section 2).
+
 ## 3. The gateway
 
 One small service that does four jobs:
@@ -48,26 +50,15 @@ One small service that does four jobs:
 | Job | Detail |
 |---|---|
 | **Model route** | Exposes one stable OpenAI-compatible address inside the box, for example `http://gateway:8000/v1`, and forwards to whichever engine is selected. Switching engines changes one setting and no harness config. |
-| **Key injection** | Cloud API keys stay on the host. The gateway adds them to outgoing requests, so the agent never sees a real key. |
+| **Key injection** | Keys stay on the host and the agent never sees a real one. Built for the engine's key on the model route. Cloud API keys are still open (question 5 in section 14): the egress proxy never decrypts HTTPS, so it cannot add a key to a tunnelled request. |
 | **Egress control** | A forward proxy that applies the current network mode (section 5). |
-| **Request log** | Records model, token counts, latency and blocked requests, for debugging and for judging a model. |
+| **Request log** | Records model, latency and how each request ended. Token counts and blocked requests are planned. |
 
 Decided: the gateway is one small Go binary, shipped in a minimal image and sharing code with the CLI. The full design is in [gateway.md](gateway.md).
 
 ## 4. Engine adapters
 
-Each engine has a small adapter folder, `providers/<id>/`, with a manifest like this:
-
-```json
-{
-  "id": "example-engine",
-  "name": "Example Engine",
-  "detect": { "ports": [1234], "probe": "/v1/models" },
-  "openaiBase": "/v1",
-  "capabilities": ["chat", "tools", "vision"],
-  "control": { "start": null, "stop": null, "unload": null }
-}
-```
+Each engine has a small adapter folder, `providers/<id>/`, with an `adapter.json` file. The format is described in [engine-adapters.md](engine-adapters.md), and `providers/strata/adapter.json` is a complete example.
 
 The adapter does the following:
 - **Detect:** probe known local ports and report what's running. Default ports differ per engine, so they get verified at implementation time (**verify**).
@@ -78,7 +69,7 @@ Engines planned for the first set: Strata, LM Studio, Ollama and llama.cpp's ser
 
 ### Host reachability
 
-Containers reach the host through a host alias. On Docker Desktop this worked for an engine bound to loopback. On other setups it may not. The gateway owns this detail, and `ezbx doctor` tests it.
+Containers reach the host through a host alias. On Docker Desktop this worked for an engine bound to loopback in a private predecessor setup. It has not been tested with EZBox yet. On other setups it may not work. The gateway owns this detail, and `ezbx doctor` tests it.
 
 ## 5. Network modes
 
@@ -106,21 +97,7 @@ Future option: a read-only root filesystem with tmpfs for scratch space.
 
 ## 7. Harnesses
 
-Each harness is a folder, `harnesses/<id>/`, with a manifest and an install script.
-
-```json
-{
-  "id": "example-harness",
-  "name": "Example Harness",
-  "kind": "coding",
-  "install": { "type": "npm", "spec": "example-harness", "version": "1.2.3" },
-  "binary": "example",
-  "config": { "path": "~/.example/config.json", "template": "config.json.tmpl" },
-  "autonomyFlag": "--skip-approvals",
-  "network": { "domains": [] },
-  "verified": { "on": "YYYY-MM-DD", "version": "1.2.3" }
-}
-```
+Each harness is a folder, `harnesses/<id>/`, with a `manifest.json` and an install script. The format is described in [harness-manifest.md](harness-manifest.md), and `harnesses/pi/manifest.json` is a complete example.
 
 - **Verified:** nothing ships without a recorded install check.
 - **Pinned:** versions are pinned and recorded in `ezbx.lock`, so a rebuild gives the same box.
@@ -193,4 +170,5 @@ It does not fully protect against:
 1. Exact format of `ezbx.toml` (box, engine and harness sections).
 2. ~~How `ezbx init` presents the choices.~~ Decided in [init-flow.md](init-flow.md): plain prompts first, every question also a flag.
 3. ~~Where snapshots and the gateway log live on disk by default.~~ Decided in [init-flow.md](init-flow.md): per-user config and state folders, never inside the workspace.
-4. How the gateway proves which engine and model it is forwarding to, so `doctor` can confirm the path end to end.
+4. How the gateway proves which engine and model it is forwarding to, so `doctor` can confirm the path end to end. (The `X-Ezbx-*` reply headers are a first answer; see [gateway.md](gateway.md).)
+5. How cloud API keys are injected. A tunnelled HTTPS request can't be changed, so one option is a route per cloud provider on the gateway, built like the model route: the harness points its base address at the gateway, and the gateway adds the key and forwards to the real API. Not decided.

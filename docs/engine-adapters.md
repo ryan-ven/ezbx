@@ -60,7 +60,7 @@ Do not change a status to `verified` until the adapter has been exercised agains
 
 - [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility) (official)
 - [LM Studio local server](https://lmstudio.ai/docs/local-server) (official)
-- [llama.cpp server README](https://github.com/ggerganov/llama.cpp/blob/master/examples/server) (official, but not read in full here)
+- [llama.cpp server README](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) (official, but not read in full here)
 - Third-party guides were used for Ollama's `/api/ps` and `keep_alive`, and for the llama.cpp port disagreement. They are flagged in the adapters.
 
 ## Open questions
