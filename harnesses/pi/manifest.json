@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "id": "pi",
+  "name": "Pi",
+  "kind": "coding",
+
+  "install": {
+    "type": "npm",
+    "package": "@earendil-works/pi-coding-agent",
+    "version": "1.5.0",
+    "script": "install.sh"
+  },
+
+  "binary": "pi",
+  "runtime": "node",
+
+  "env": {
+    "PI_SKIP_VERSION_CHECK": "1"
+  },
+
+  "config": [
+    {
+      "path": "~/.pi/agent/models.json",
+      "mode": "0600",
+      "content": {
+        "providers": {
+          "ezbox": {
+            "baseUrl": "${gateway.baseUrl}",
+            "api": "openai-completions",
+            "apiKey": "${gateway.key}",
+            "compat": {
+              "supportsDeveloperRole": false,
+              "supportsReasoningEffort": false
+            },
+            "models": {
+              "$each": "models",
+              "as": {
+                "id": "${id}",
+                "name": "${name}",
+                "reasoning": "${reasoning}",
+                "input": "${input}",
+                "contextWindow": "${contextWindow}",
+                "maxTokens": "${maxTokens}",
+                "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "path": "~/.pi/agent/settings.json",
+      "mode": "0600",
+      "content": {
+        "defaultProvider": "ezbox",
+        "defaultModel": "${models.default.id}",
+        "defaultThinkingLevel": "medium"
+      }
+    }
+  ],
+
+  "launch": {
+    "command": ["pi"],
+    "cwd": "/workspace"
+  },
+
+  "autonomy": {
+    "flag": null,
+    "note": "No approval-skipping flag is recorded yet. Check Pi's current documentation before adding one."
+  },
+
+  "network": {
+    "domains": [],
+    "optional": {
+      "github-mcp": ["api.githubcopilot.com"]
+    }
+  },
+
+  "secrets": [],
+
+  "verified": {
+    "version": "1.5.0",
+    "status": "observed-in-prior-setup",
+    "observedOn": "2026-11-06",
+    "reverify": true,
+    "notes": "Install and local-model use were observed in a private predecessor setup. Re-verify on the first EZBox image build before marking verified."
+  }
+}
