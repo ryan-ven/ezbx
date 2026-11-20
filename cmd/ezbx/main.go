@@ -34,6 +34,7 @@ Usage:
   ezbx gateway health [--addr 127.0.0.1:PORT]
   ezbx harness render ID --out FOLDER [--url ADDRESS] [--default MODEL]
                      [--context N] [--max-tokens N] [--reasoning]
+  ezbx doctor [--box NAME] [--json]
 
 Commands:
   engine detect   Find inference engines running on this computer.
@@ -51,6 +52,9 @@ Commands:
                   healthcheck.
   harness render  Write a harness's config files, filled in from the
                   engine's model list, laid out like the agent's home.
+  doctor          Check Docker, the engine, the networks, the gateway and
+                  the box, then check from inside the box's network that it
+                  reaches the model and nothing else. Explains each fix.
 `
 
 func main() {
@@ -61,6 +65,9 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) >= 2 && args[0] == "engine" && args[1] == "detect" {
 		return runDetect(args[2:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "doctor" {
+		return runDoctor(args[1:], stdout, stderr)
 	}
 	if len(args) >= 2 && args[0] == "harness" && args[1] == "render" {
 		return runHarnessRender(args[2:], stdout, stderr)
