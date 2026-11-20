@@ -35,6 +35,7 @@ func runGateway(args []string, stdout, stderr io.Writer) int {
 	listen := fs.String("listen", defaultModelAddr, "address for the model route")
 	upstream := fs.String("upstream", "", "engine address; empty means use the one engine that is detected")
 	engine := fs.String("engine", "", "engine id shown in replies (set automatically when detected)")
+	upstreamHost := fs.String("upstream-host", "", "Host header sent to the engine; empty means localhost:PORT for Docker Desktop's host alias, else the upstream address")
 	keyEnv := fs.String("key-env", "", "NAME of an environment variable holding the engine's key")
 	logFile := fs.String("log", "-", "where to write the JSON log; - means standard output")
 	proxyAddr := fs.String("proxy", "", "address for the egress proxy; empty means no proxy")
@@ -80,7 +81,7 @@ func runGateway(args []string, stdout, stderr io.Writer) int {
 		logOut = f
 	}
 
-	gw, err := gateway.New(gateway.Config{Upstream: *upstream, EngineID: *engine, Key: key, Log: logOut})
+	gw, err := gateway.New(gateway.Config{Upstream: *upstream, EngineID: *engine, Key: key, Log: logOut, UpstreamHost: *upstreamHost})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2

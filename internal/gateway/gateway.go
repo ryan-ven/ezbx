@@ -54,6 +54,19 @@ type Config struct {
 	// IdleTimeout ends a reply when the engine sends nothing for this long.
 	// 0 means 10 minutes.
 	IdleTimeout time.Duration
+
+	// UpstreamHost is the Host header sent to the engine. Empty means
+	// automatic: localhost:PORT when the upstream is Docker Desktop's host
+	// alias (see SetUpstream), otherwise the upstream's own address.
+	UpstreamHost string
+}
+
+// hostAliases are the names Docker Desktop gives the host. An engine reached
+// this way is really listening on the host's loopback, and engines with DNS
+// rebinding protection (Strata, for example) refuse any other Host header.
+var hostAliases = map[string]bool{
+	"host.docker.internal":    true,
+	"gateway.docker.internal": true,
 }
 
 // target is an engine address and name. It is swapped as one unit so a
@@ -61,11 +74,13 @@ type Config struct {
 type target struct {
 	url    *url.URL
 	engine string
+	host   string // Host header for the engine; "" means the url's host
 }
 
 // Gateway implements http.Handler for the model route.
 type Gateway struct {
 	key       string
+	hostSet   string // Config.UpstreamHost
 	maxBody   int64
 	idle      time.Duration
 	buffered  budget
@@ -92,8 +107,12 @@ type ctxKey struct{}
 
 // New creates a gateway that forwards to cfg.Upstream.
 func New(cfg Config) (*Gateway, error) {
+	if cfg.UpstreamHost != "" && !validHostHeader(cfg.UpstreamHost) {
+		return nil, errors.New("upstream host must be a host name or address with an optional port, such as localhost:8080")
+	}
 	g := &Gateway{
 		key:     cfg.Key,
+		hostSet: cfg.UpstreamHost,
 		maxBody: cfg.MaxBody,
 		idle:    cfg.IdleTimeout,
 		log:     newLogger(cfg.Log),
@@ -156,8 +175,41 @@ func (g *Gateway) SetUpstream(raw, engineID string) error {
 	if engineID == "" {
 		engineID = "unknown"
 	}
-	g.target.Store(&target{url: &url.URL{Scheme: u.Scheme, Host: u.Host}, engine: engineID})
+	t := &target{url: &url.URL{Scheme: u.Scheme, Host: u.Host}, engine: engineID, host: g.hostSet}
+	if t.host == "" && hostAliases[strings.ToLower(u.Hostname())] {
+		port := u.Port()
+		if port == "" {
+			port = map[string]string{"http": "80", "https": "443"}[u.Scheme]
+		}
+		t.host = net.JoinHostPort("localhost", port)
+	}
+	g.target.Store(t)
 	return nil
+}
+
+// validHostHeader accepts host, host:port or [v6]:port and nothing else, so
+// the setting can't smuggle extra header text.
+func validHostHeader(h string) bool {
+	name, port, err := net.SplitHostPort(h)
+	if err != nil {
+		name, port = h, ""
+	}
+	if port != "" {
+		for _, c := range port {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+	}
+	if name == "" {
+		return false
+	}
+	for _, c := range name {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.' || c == '-' || c == ':') {
+			return false
+		}
+	}
+	return true
 }
 
 // ServeHTTP routes a request.
@@ -310,6 +362,9 @@ func (g *Gateway) readModel(w http.ResponseWriter, r *http.Request, info *reqInf
 func (g *Gateway) rewrite(pr *httputil.ProxyRequest) {
 	info := pr.In.Context().Value(ctxKey{}).(*reqInfo)
 	pr.SetURL(info.t.url)
+	if info.t.host != "" {
+		pr.Out.Host = info.t.host
+	}
 
 	// The box's own key is a placeholder and must never reach the engine.
 	pr.Out.Header.Del("Authorization")
@@ -372,21 +427,37 @@ func (g *Gateway) ready(w http.ResponseWriter, r *http.Request) {
 	if err == nil && g.key != "" {
 		req.Header.Set("Authorization", "Bearer "+g.key)
 	}
+	if err == nil && t.host != "" {
+		req.Host = t.host
+	}
 	var resp *http.Response
 	if err == nil {
 		resp, err = (&http.Client{Transport: g.transport}).Do(req)
 	}
+	notReady := func(reason string) {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ready": false, "engine": t.engine, "reason": reason})
+	}
 	if err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ready": false, "engine": t.engine, "reason": "engine not reachable"})
+		notReady("engine not reachable")
 		return
 	}
 	defer resp.Body.Close()
 
+	// Say what actually happened: a refusal (401, 403) needs a different fix
+	// from an engine with no model loaded.
+	if resp.StatusCode != http.StatusOK {
+		notReady(fmt.Sprintf("engine answered with status %d", resp.StatusCode))
+		return
+	}
 	var list struct {
 		Data []json.RawMessage `json:"data"`
 	}
-	if resp.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&list) != nil || len(list.Data) == 0 {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ready": false, "engine": t.engine, "reason": "engine reports no models"})
+	if json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&list) != nil {
+		notReady("engine's model list is not valid JSON")
+		return
+	}
+	if len(list.Data) == 0 {
+		notReady("engine reports no models")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ready": true, "engine": t.engine, "models": len(list.Data)})
