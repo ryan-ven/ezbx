@@ -7,8 +7,8 @@
     "hintPorts": [1234],
     "cli": null,
     "probes": [
-      { "path": "/v1/models", "expect": { "hasFields": ["data[].id"] } },
-      { "path": "/api/v0/models", "expect": { "hasFields": ["data[].id"] }, "optional": true }
+      { "path": "/v1/models", "expect": { "hasLists": ["data"] } },
+      { "path": "/api/v1/models", "expect": { "hasLists": ["models"] } }
     ]
   },
 
@@ -43,6 +43,6 @@
   "verified": {
     "status": "docs-only",
     "on": null,
-    "notes": "Port 1234 and the OpenAI-style API are from LM Studio's server docs. The lms subcommands are listed by a community index of its CLI. Confirm each command with `lms --help` and the extra model fields from the native REST API before relying on them."
+    "notes": "Port 1234 (used in every example) and the OpenAI-style API are from LM Studio's server docs. It is recognised by its native REST API, GET /api/v1/models, which answers with a models list (LM Studio 0.4.0 and later, per its docs read 2026-11-20). Older versions, or a server with its API token switched on, show up as a generic OpenAI-compatible server instead. The native list also reports max_context_length and loaded_instances per model, which are not read yet. The lms subcommands are listed by a community index of its CLI; confirm each with `lms --help` before relying on them."
   }
 }

@@ -18,7 +18,7 @@ func TestEmbeddedAdaptersLoad(t *testing.T) {
 	for _, a := range adapters {
 		ids = append(ids, a.ID)
 	}
-	if got := strings.Join(ids, ","); got != "llamacpp,lmstudio,ollama,strata" {
+	if got := strings.Join(ids, ","); got != "llamacpp,lmstudio,ollama,openai,strata" {
 		t.Fatalf("unexpected adapters: %s", got)
 	}
 }
@@ -50,10 +50,29 @@ func TestValidation(t *testing.T) {
 		"probe path without slash": strings.Replace(good, `"path": "/v1/models"`, `"path": "v1/models"`, 1),
 		"no required probe":        strings.Replace(good, `"expect"`, `"optional": true, "expect"`, 1),
 		"missing models.id":        strings.Replace(good, `"id": "data[].id"`, `"id": ""`, 1),
+		"models.id not in a list":  strings.Replace(good, `"id": "data[].id"`, `"id": "id"`, 1),
+		"loaded form unreadable":   strings.Replace(good, `"loaded": null`, `"loaded": "/api/ps models[].name extra"`, 1),
+		"loaded field elsewhere":   strings.Replace(good, `"loaded": null`, `"loaded": "other[].state == loaded"`, 1),
+		"loaded without value":     strings.Replace(good, `"loaded": null`, `"loaded": "data[].state == "`, 1),
+		"loaded plain word":        strings.Replace(good, `"loaded": null`, `"loaded": "yes"`, 1),
+		"context outside the list": strings.Replace(good, `"contextWindow": null`, `"contextWindow": "meta.n_ctx"`, 1),
+		"probe expects nothing":    strings.Replace(good, `"expect": {"hasFields": ["data[].id"]}`, `"expect": {}`, 1),
+		"hasLists with brackets":   strings.Replace(good, `"expect": {"hasFields": ["data[].id"]}`, `"expect": {"hasLists": ["data[]"]}`, 1),
 	}
 	for name, body := range bad {
 		if err := load(t, "demo", body); err == nil {
 			t.Errorf("%s: expected an error, got none", name)
 		}
+	}
+}
+
+func TestLoadedForms(t *testing.T) {
+	for _, form := range []string{`"data[].status.value == loaded"`, `"/api/ps models[].name"`} {
+		if err := load(t, "demo", strings.Replace(good, `"loaded": null`, `"loaded": `+form, 1)); err != nil {
+			t.Errorf("loaded %s should be accepted: %v", form, err)
+		}
+	}
+	if err := load(t, "demo", strings.Replace(good, `"expect": {"hasFields": ["data[].id"]}`, `"expect": {"hasLists": ["data"]}`, 1)); err != nil {
+		t.Errorf("hasLists should be accepted: %v", err)
 	}
 }

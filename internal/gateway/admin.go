@@ -62,6 +62,8 @@ func (a *Admin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/admin/status":
 		a.only(rec, r, http.MethodGet, a.status)
+	case "/admin/ready":
+		a.only(rec, r, http.MethodGet, a.g.ready)
 	case "/admin/engine":
 		a.only(rec, r, http.MethodPut, a.setEngine)
 	case "/admin/network":

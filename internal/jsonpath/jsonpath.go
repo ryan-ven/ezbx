@@ -57,6 +57,14 @@ func Has(v any, path string) bool {
 	return Has(items[0], rest)
 }
 
+// IsList reports whether the path (plain dotted fields, no "[]") leads to a
+// list. An empty list counts, so an engine with no models still matches.
+func IsList(v any, path string) bool {
+	got, ok := Get(v, path)
+	_, isList := got.([]any)
+	return ok && isList
+}
+
 // Collect returns every value the path leads to, across all list elements.
 func Collect(v any, path string) []any {
 	arrayPath, rest, hasArray := SplitArray(path)

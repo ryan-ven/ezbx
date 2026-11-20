@@ -7,8 +7,8 @@
     "hintPorts": [11434],
     "cli": null,
     "probes": [
-      { "path": "/api/ps", "expect": { "hasFields": ["models"] } },
-      { "path": "/v1/models", "expect": { "hasFields": ["data[].id"] } }
+      { "path": "/api/ps", "expect": { "hasLists": ["models"] } },
+      { "path": "/v1/models", "expect": { "hasLists": ["data"] } }
     ]
   },
 

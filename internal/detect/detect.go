@@ -30,14 +30,14 @@ const maxBody = 1 << 20 // 1 MiB
 // can replace it without starting real programs.
 type Runner func(ctx context.Context, argv []string) ([]byte, error)
 
-// Detector holds everything detection needs.
+// Detector holds everything detection needs. Detect doesn't change it, so
+// one Detector can be used by several callers at once.
 type Detector struct {
 	Adapters      []adapter.Adapter
 	Run           Runner        // nil means "never run commands"
 	Timeout       time.Duration // per request; 0 means 500ms
 	Hosts         []string      // hosts to probe for hint ports; nil means 127.0.0.1
 	SkipHintPorts bool          // tests use this to probe only given addresses
-	client        *http.Client
 }
 
 // Model is one model an engine reports.
@@ -65,9 +65,25 @@ type Result struct {
 	Notes   []string `json:"notes,omitempty"`
 }
 
+// scan holds what one Detect call needs, so the Detector itself never changes.
+type scan struct {
+	d       *Detector
+	client  *http.Client
+	timeout time.Duration
+}
+
 // Detect looks for engines. extra holds addresses the user gave explicitly.
 func (d *Detector) Detect(ctx context.Context, extra []string) Result {
-	d.setup()
+	s := &scan{d: d, timeout: d.Timeout}
+	if s.timeout <= 0 {
+		s.timeout = 500 * time.Millisecond
+	}
+	s.client = &http.Client{
+		Timeout:   s.timeout,
+		Transport: &http.Transport{Proxy: nil}, // probes go straight to this computer
+		// A redirect could point somewhere else entirely, so never follow one.
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 
 	var res Result
 	candidates := map[string]bool{}
@@ -118,7 +134,7 @@ func (d *Detector) Detect(ctx context.Context, extra []string) Result {
 		wg.Add(1)
 		go func(base string) {
 			defer wg.Done()
-			if eng, ok := d.check(ctx, base); ok {
+			if eng, ok := s.check(ctx, base); ok {
 				mu.Lock()
 				res.Engines = append(res.Engines, eng)
 				mu.Unlock()
@@ -136,18 +152,9 @@ func (d *Detector) Detect(ctx context.Context, extra []string) Result {
 	return res
 }
 
-func (d *Detector) setup() {
-	if d.Timeout == 0 {
-		d.Timeout = 500 * time.Millisecond
-	}
-	d.client = &http.Client{
-		Timeout: d.Timeout,
-		// A redirect could point somewhere else entirely, so never follow one.
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
-}
-
-// askCLI runs an adapter's status command and returns the loopback URLs it lists.
+// askCLI runs an adapter's status command and returns the loopback URLs it
+// lists. Addresses on other computers are skipped, never probed, and the user
+// is told once.
 func (d *Detector) askCLI(ctx context.Context, a adapter.Adapter) ([]string, string) {
 	out, err := d.Run(ctx, a.Detect.CLI.Command)
 	if err != nil {
@@ -161,15 +168,20 @@ func (d *Detector) askCLI(ctx context.Context, a adapter.Adapter) ([]string, str
 	}
 
 	var urls []string
+	skipped := 0
 	for _, v := range jsonpath.Collect(doc, a.Detect.CLI.Reads) {
 		raw, ok := v.(string)
 		if !ok {
 			continue
 		}
 		if !isLoopback(raw) {
-			return urls, fmt.Sprintf("%s: ignored a server that is not on this computer", a.Name)
+			skipped++
+			continue
 		}
 		urls = append(urls, raw)
+	}
+	if skipped > 0 {
+		return urls, fmt.Sprintf("%s: ignored %d server(s) that are not on this computer", a.Name, skipped)
 	}
 	return urls, ""
 }
@@ -194,12 +206,12 @@ type match struct {
 }
 
 // check decides which engine, if any, lives at base.
-func (d *Detector) check(ctx context.Context, base string) (Engine, bool) {
+func (s *scan) check(ctx context.Context, base string) (Engine, bool) {
 	cache := map[string]any{} // answers already fetched from this address
 
 	var matches []match
-	for _, a := range d.Adapters {
-		if spec, ok := d.matches(ctx, base, a, cache); ok {
+	for _, a := range s.d.Adapters {
+		if spec, ok := s.matches(ctx, base, a, cache); ok {
 			matches = append(matches, match{a, spec})
 		}
 	}
@@ -220,27 +232,37 @@ func (d *Detector) check(ctx context.Context, base string) (Engine, bool) {
 		ID:          best.adapter.ID,
 		Name:        best.adapter.Name,
 		URL:         base,
+		Models:      []Model{},
 		Specificity: best.specificity,
 		Verified:    best.adapter.Verified.Status,
 	}
 	for _, m := range matches[1:] {
 		eng.AlsoMatched = append(eng.AlsoMatched, m.adapter.ID)
 	}
-	if doc, ok := d.fetch(ctx, base, best.adapter.OpenAI.ModelsPath, cache); ok {
+	if doc, ok := s.fetch(ctx, base, best.adapter.OpenAI.ModelsPath, cache); ok {
 		eng.Models = readModels(doc, best.adapter.Models)
+		s.markLoaded(ctx, base, best.adapter.Models, eng.Models, cache)
 	}
 	return eng, true
 }
 
 // matches runs one adapter's probes against base. Every required probe must
-// answer with all of its expected fields. The score counts the fields seen.
-func (d *Detector) matches(ctx context.Context, base string, a adapter.Adapter, cache map[string]any) (int, bool) {
+// answer with all of its expected fields and lists. The score counts them.
+func (s *scan) matches(ctx context.Context, base string, a adapter.Adapter, cache map[string]any) (int, bool) {
 	score := 0
 	for _, p := range a.Detect.Probes {
-		doc, ok := d.fetch(ctx, base, p.Path, cache)
+		doc, ok := s.fetch(ctx, base, p.Path, cache)
 		if ok {
 			for _, field := range p.Expect.HasFields {
 				if !jsonpath.Has(doc, field) {
+					ok = false
+					break
+				}
+			}
+		}
+		if ok {
+			for _, l := range p.Expect.HasLists {
+				if !jsonpath.IsList(doc, l) {
 					ok = false
 					break
 				}
@@ -252,20 +274,20 @@ func (d *Detector) matches(ctx context.Context, base string, a adapter.Adapter, 
 			}
 			return 0, false
 		}
-		score += max(len(p.Expect.HasFields), 1)
+		score += len(p.Expect.HasFields) + len(p.Expect.HasLists)
 	}
 	return score, true
 }
 
 // fetch does a plain GET and decodes the JSON answer. It sends no key and no
 // information about the user.
-func (d *Detector) fetch(ctx context.Context, base, path string, cache map[string]any) (any, bool) {
+func (s *scan) fetch(ctx context.Context, base, path string, cache map[string]any) (any, bool) {
 	if doc, seen := cache[path]; seen {
 		return doc, doc != nil
 	}
 	cache[path] = nil
 
-	ctx, cancel := context.WithTimeout(ctx, d.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path, nil)
 	if err != nil {
@@ -274,7 +296,7 @@ func (d *Detector) fetch(ctx context.Context, base, path string, cache map[strin
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "ezbx-detect")
 
-	resp, err := d.client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, false
 	}
@@ -291,17 +313,41 @@ func (d *Detector) fetch(ctx context.Context, base, path string, cache map[strin
 	return doc, true
 }
 
+// markLoaded handles the "/route list[].field" form of models.loaded: a model
+// is loaded when another route lists its id. If that route doesn't answer,
+// loaded stays unknown rather than being reported as false.
+func (s *scan) markLoaded(ctx context.Context, base string, spec adapter.Models, models []Model, cache map[string]any) {
+	route, path, ok := spec.LoadedIn()
+	if !ok {
+		return
+	}
+	doc, ok := s.fetch(ctx, base, route, cache)
+	if !ok {
+		return
+	}
+	listed := map[string]bool{}
+	for _, v := range jsonpath.Collect(doc, path) {
+		if str, isStr := v.(string); isStr {
+			listed[str] = true
+		}
+	}
+	for i := range models {
+		loaded := listed[models[i].ID]
+		models[i].Loaded = &loaded
+	}
+}
+
 // readModels turns an engine's model list into Model values, using only the
 // facts the adapter says the engine reports.
 func readModels(doc any, spec adapter.Models) []Model {
+	out := []Model{}
 	arrayPath, idPath, ok := jsonpath.SplitArray(spec.ID)
 	if !ok {
-		return nil
+		return out
 	}
 	list, _ := jsonpath.Get(doc, arrayPath)
 	items, _ := list.([]any)
 
-	var out []Model
 	for _, item := range items {
 		id, _ := jsonpath.Get(item, idPath)
 		name, isString := id.(string)

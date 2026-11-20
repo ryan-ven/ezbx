@@ -223,7 +223,7 @@ func runAdmin(args []string, stdout, stderr io.Writer) int {
 	}
 	rest := fs.Args()
 	if len(rest) == 0 {
-		fmt.Fprintln(stderr, "Say which call: status, engine, network or allow.")
+		fmt.Fprintln(stderr, "Say which call: status, ready, engine, network or allow.")
 		return 2
 	}
 
@@ -232,6 +232,8 @@ func runAdmin(args []string, stdout, stderr io.Writer) int {
 	switch rest[0] {
 	case "status":
 		method, path = http.MethodGet, "/admin/status"
+	case "ready":
+		method, path = http.MethodGet, "/admin/ready"
 	case "engine":
 		if len(rest) < 2 || len(rest) > 3 {
 			fmt.Fprintln(stderr, "Usage: engine UPSTREAM [ID]")
@@ -255,7 +257,7 @@ func runAdmin(args []string, stdout, stderr io.Writer) int {
 		}
 		method, path, body = http.MethodPost, "/admin/network/allow", map[string]string{"domain": rest[1]}
 	default:
-		fmt.Fprintf(stderr, "Unknown call %q. Use status, engine, network or allow.\n", rest[0])
+		fmt.Fprintf(stderr, "Unknown call %q. Use status, ready, engine, network or allow.\n", rest[0])
 		return 2
 	}
 

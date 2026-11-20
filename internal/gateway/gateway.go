@@ -164,9 +164,9 @@ func (g *Gateway) SetUpstream(raw, engineID string) error {
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.URL.Path == "/healthz":
+		// Readiness asks the engine, so it lives on the admin API only
+		// (GET /admin/ready). The box gets just this cheap check.
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	case r.URL.Path == "/readyz":
-		g.ready(w, r)
 	case strings.HasPrefix(r.URL.Path, "/v1/"):
 		switch {
 		case !safePath(r.URL.Path):

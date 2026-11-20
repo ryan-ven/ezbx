@@ -274,16 +274,32 @@ func TestHealthAndReadiness(t *testing.T) {
 		_, _ = io.WriteString(w, `{"data":[{"id":"m1"}]}`)
 	}))
 	g, gw := start(t, up.URL, "", nil)
+	a, err := NewAdmin(g, nil, testToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adm := httptest.NewServer(a)
+	t.Cleanup(adm.Close)
+	ready := func() int {
+		code, _ := call(t, adm, http.MethodGet, "/admin/ready", testToken, "")
+		return code
+	}
 
-	resp, _ := http.Get(gw.URL + "/healthz")
+	// Readiness is only on the admin API, so the box can't make the gateway
+	// ask the engine over and over.
+	resp, _ := http.Get(gw.URL + "/readyz")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("readyz on the model route: %d, want 404", resp.StatusCode)
+	}
+
+	resp, _ = http.Get(gw.URL + "/healthz")
 	resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Errorf("healthz: %d", resp.StatusCode)
 	}
-	resp, _ = http.Get(gw.URL + "/readyz")
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Errorf("readyz with a working engine: %d", resp.StatusCode)
+	if code := ready(); code != 200 {
+		t.Errorf("ready with a working engine: %d", code)
 	}
 
 	// An engine that answers but lists no models is not ready.
@@ -294,10 +310,8 @@ func TestHealthAndReadiness(t *testing.T) {
 	if err := g.SetUpstream(empty.URL, "demo"); err != nil {
 		t.Fatal(err)
 	}
-	resp, _ = http.Get(gw.URL + "/readyz")
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("readyz with no models: %d", resp.StatusCode)
+	if code := ready(); code != http.StatusServiceUnavailable {
+		t.Errorf("ready with no models: %d", code)
 	}
 
 	// An engine that is gone is not ready either, but the gateway is still healthy.
@@ -305,10 +319,8 @@ func TestHealthAndReadiness(t *testing.T) {
 	if err := g.SetUpstream(up.URL, "demo"); err != nil {
 		t.Fatal(err)
 	}
-	resp, _ = http.Get(gw.URL + "/readyz")
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("readyz with engine down: %d", resp.StatusCode)
+	if code := ready(); code != http.StatusServiceUnavailable {
+		t.Errorf("ready with engine down: %d", code)
 	}
 	resp, _ = http.Get(gw.URL + "/healthz")
 	resp.Body.Close()

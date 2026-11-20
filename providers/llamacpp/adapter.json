@@ -8,7 +8,7 @@
     "cli": null,
     "probes": [
       { "path": "/health", "expect": { "hasFields": ["status"] } },
-      { "path": "/v1/models", "expect": { "hasFields": ["data[].id"] } }
+      { "path": "/v1/models", "expect": { "hasLists": ["data"] } }
     ]
   },
 

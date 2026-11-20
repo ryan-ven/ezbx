@@ -45,9 +45,12 @@ type Probe struct {
 	Optional bool   `json:"optional"`
 }
 
-// Expect lists the JSON fields a reply must contain.
+// Expect lists what a reply must contain. HasFields must lead to real values
+// (a path with "[]" needs a non-empty list). HasLists must be lists, which may
+// be empty, so an engine with no models is still recognised.
 type Expect struct {
 	HasFields []string `json:"hasFields"`
+	HasLists  []string `json:"hasLists"`
 }
 
 // OpenAI holds the paths of the OpenAI-style API.
@@ -59,6 +62,11 @@ type OpenAI struct {
 
 // Models says where to read model facts from the model list.
 // A nil entry means the engine doesn't report that fact.
+//
+// Loaded has one of two forms:
+//
+//	"data[].status.value == loaded"   a field in the model list equals a value
+//	"/api/ps models[].name"           the model's id is listed by another route
 type Models struct {
 	ID            string  `json:"id"`
 	ContextWindow *string `json:"contextWindow"`
@@ -129,10 +137,22 @@ func (a Adapter) validate(folder string) error {
 		return fmt.Errorf("models.id is required")
 	}
 
+	if err := a.Models.validate(); err != nil {
+		return err
+	}
+
 	required := 0
 	for _, p := range a.Detect.Probes {
 		if !strings.HasPrefix(p.Path, "/") {
 			return fmt.Errorf("probe path %q must start with /", p.Path)
+		}
+		if len(p.Expect.HasFields)+len(p.Expect.HasLists) == 0 {
+			return fmt.Errorf("probe %q expects nothing, so any answer would match", p.Path)
+		}
+		for _, l := range p.Expect.HasLists {
+			if strings.Contains(l, "[]") {
+				return fmt.Errorf("probe %q: hasLists takes a plain path such as \"data\", not %q", p.Path, l)
+			}
 		}
 		if !p.Optional {
 			required++
@@ -145,4 +165,42 @@ func (a Adapter) validate(folder string) error {
 		return fmt.Errorf("detect.cli needs a command and a reads path")
 	}
 	return nil
+}
+
+// validate checks that every model fact uses a form the detector can read.
+// A fact it can't read would otherwise be silently ignored.
+func (m Models) validate() error {
+	list, _, ok := strings.Cut(m.ID, "[]")
+	if !ok || list == "" {
+		return fmt.Errorf("models.id %q must point into a list, such as data[].id", m.ID)
+	}
+	prefix := list + "[]."
+	for name, p := range map[string]*string{"contextWindow": m.ContextWindow, "input": m.Input} {
+		if p != nil && !strings.HasPrefix(*p, prefix) {
+			return fmt.Errorf("models.%s %q must start with %q, like models.id", name, *p, prefix)
+		}
+	}
+	if m.Loaded == nil {
+		return nil
+	}
+	if path, want, found := strings.Cut(*m.Loaded, " == "); found {
+		if !strings.HasPrefix(path, prefix) || want == "" {
+			return fmt.Errorf("models.loaded %q: the field must start with %q and have a value after ==", *m.Loaded, prefix)
+		}
+		return nil
+	}
+	route, path, found := strings.Cut(*m.Loaded, " ")
+	if !found || !strings.HasPrefix(route, "/") || !strings.Contains(path, "[]") || strings.Contains(path, " ") {
+		return fmt.Errorf("models.loaded %q must be \"%sfield == value\" or \"/route list[].field\"", *m.Loaded, prefix)
+	}
+	return nil
+}
+
+// LoadedIn returns the route and list path when Loaded has the
+// "/route list[].field" form.
+func (m Models) LoadedIn() (route, path string, ok bool) {
+	if m.Loaded == nil || strings.Contains(*m.Loaded, " == ") {
+		return "", "", false
+	}
+	return strings.Cut(*m.Loaded, " ")
 }

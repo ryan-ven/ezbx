@@ -41,6 +41,7 @@ Commands:
   gateway admin   Call the admin API. Meant to run inside the gateway
                   container through docker exec. CALL is one of:
                     status
+                    ready              (does the engine answer with models?)
                     engine UPSTREAM [ID]
                     network off|allow|on [HOST]...
                     allow HOST
@@ -153,10 +154,17 @@ func describe(m detect.Model) string {
 // runCommand runs an engine's own status command. Only commands that come
 // from the adapters built into ezbx are ever run.
 func runCommand(ctx context.Context, argv []string) ([]byte, error) {
+	return runCommandFor(ctx, argv, 5*time.Second)
+}
+
+// runCommandFor runs a command with a time limit. When the limit is reached,
+// the command and everything it started are ended, not just the first
+// process (see killTree).
+func runCommandFor(ctx context.Context, argv []string, limit time.Duration) ([]byte, error) {
 	if len(argv) == 0 {
 		return nil, errors.New("empty command")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 
 	path, err := exec.LookPath(argv[0])
@@ -164,6 +172,10 @@ func runCommand(ctx context.Context, argv []string) ([]byte, error) {
 		return nil, err
 	}
 	cmd := exec.CommandContext(ctx, path, argv[1:]...)
+	prepareTree(cmd)
+	cmd.Cancel = func() error { return killTree(cmd.Process) }
+	// If a leftover process still holds the output pipe, stop waiting anyway.
+	cmd.WaitDelay = 2 * time.Second
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {

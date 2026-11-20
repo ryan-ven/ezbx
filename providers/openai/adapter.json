@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "id": "openai",
+  "name": "OpenAI-compatible server",
+
+  "detect": {
+    "hintPorts": [],
+    "cli": null,
+    "probes": [
+      { "path": "/v1/models", "expect": { "hasLists": ["data"] } }
+    ]
+  },
+
+  "openai": {
+    "basePath": "/v1",
+    "modelsPath": "/v1/models",
+    "chatPath": "/v1/chat/completions"
+  },
+
+  "models": {
+    "id": "data[].id",
+    "contextWindow": null,
+    "input": null,
+    "loaded": null
+  },
+
+  "auth": {
+    "mode": "optional-bearer",
+    "keyEnv": null,
+    "note": "Unknown server. If it needs a key, name an environment variable in your local config."
+  },
+
+  "capabilities": ["chat"],
+
+  "control": {
+    "status": null,
+    "start": null,
+    "stop": null,
+    "unload": null
+  },
+
+  "verified": {
+    "status": "generic",
+    "on": null,
+    "notes": "The fallback for a server that offers an OpenAI-style model list but matches no specific adapter. It adds no ports of its own, so it only applies to addresses found another way. Any specific adapter that matches wins over it."
+  }
+}

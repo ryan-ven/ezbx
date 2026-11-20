@@ -7,8 +7,10 @@
     "hintPorts": [8080],
     "cli": { "command": ["strata", "launch", "--status", "--output", "json"], "reads": "running[].url" },
     "probes": [
-      { "path": "/health", "expect": { "hasFields": ["max_context", "model"] } },
-      { "path": "/v1/models", "expect": { "hasFields": ["data[].status.value"] } }
+      { "path": "/health", "expect": { "hasFields": ["status", "max_context"] } },
+      { "path": "/health", "expect": { "hasFields": ["model"] }, "optional": true },
+      { "path": "/v1/models", "expect": { "hasLists": ["data"] } },
+      { "path": "/v1/models", "expect": { "hasFields": ["data[].status.value"] }, "optional": true }
     ]
   },
 
