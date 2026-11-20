@@ -1,6 +1,6 @@
 # EZBox design (draft 0.1)
 
-Status: first draft. Most of this is a proposal. Built so far: engine detection, the gateway (model route, egress proxy, admin API), config rendering for Pi, `ezbx doctor`, and `ezbx up`/`down`, which create the networks, the gateway and the box from `ezbx.toml`. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
+Status: first draft. Most of this is a proposal. Built so far: engine detection, the gateway (model route, egress proxy, admin API), config rendering for Pi, `ezbx doctor`, `ezbx up`/`down`, which create the networks, the gateway and the box from `ezbx.toml`, and `ezbx shell`, `ezbx net` and `ezbx engine use` for a running box. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
 
 ## 1. Goal
 
@@ -80,6 +80,7 @@ Containers reach the host through a host alias. On Docker Desktop this worked fo
 | `on` | yes | the public internet (local networks and the host stay blocked) |
 
 - Switching modes only changes the gateway's rules, so running sessions continue.
+- A mode switched with `ezbx net` lasts until the next `ezbx up` or gateway restart, which go back to the mode in `ezbx.toml`, so a forgotten `on` never outlives its session. Hosts approved with `ezbx net allow` are saved in the box's state folder and kept (decision 11).
 - Each harness manifest lists the domains it needs, and `allow` merges the lists of the installed harnesses.
 - Cloud-backed harnesses won't work in `off`. `ezbx doctor` says so.
 - The default allowlist is tiny: package registries and the code host. Everything else is added on demand. The gateway logs blocked requests, and `ezbx net allow <domain>` approves one. Allowlists are plain data files, so people can contribute to them.
@@ -169,6 +170,7 @@ It does not fully protect against:
 | 8 | Cloud API keys | One reverse route per cloud provider on the gateway, built like the model route. The harness points its base address at the gateway, and the gateway adds the key and forwards to that provider's fixed address. Each provider gets a small adapter for its key style. Only API-key providers are covered; account logins that refresh their own tokens are a separate case for later. Built after the isolation proof, since 0.1's first harness uses a local model. |
 | 9 | Where config and state live | Windows: `%LOCALAPPDATA%\ezbx` holds `ezbx.toml`, and `%LOCALAPPDATA%\ezbx\state\<box>` holds the admin token and logs (snapshots later). Not the Roaming folder, which a domain profile copies between machines; the token, the logs and the machine's own paths should stay on this one. macOS: `~/Library/Application Support/ezbx`, the same layout. Linux: `$XDG_CONFIG_HOME/ezbx` and `$XDG_STATE_HOME/ezbx` (`~/.config/ezbx` and `~/.local/state/ezbx`). `EZBX_HOME` moves both, for tests. The state folder is never mounted into the box, and the workspace may not overlap it. On Windows the token's file mode means little; what protects it is that the user's profile folder is private to that user and to administrators. |
 | 10 | Config format | TOML, read with [BurntSushi/toml](https://github.com/BurntSushi/toml) (MIT, no dependencies of its own), EZBox's first outside module, pinned in `go.sum`. Unknown settings are refused, so a typo is an error. Sections: `[box.<name>]`, `[engine]` with `[engine.<id>]` overrides, `[models."<id>"]` for facts engines don't report, and `[gateway]`. A parser of our own could replace the module later if we want no dependencies. |
+| 11 | Changes to a running box | `ezbx net off\|allow\|on` and `ezbx engine use` change the running gateway only. The next `ezbx up`, or a restart of the gateway (Docker Desktop restarting, say), goes back to `ezbx.toml`: the safe default wins, so a forgotten `net on` doesn't survive. Hosts approved with `ezbx net allow HOST` are kept: they are saved in `approved-hosts` in the box's state folder, which is mounted read-only into the gateway (never the box) and read with `--allow-file` each time it starts. `ezbx net remove HOST` forgets one. |
 
 ## 14. Open questions
 

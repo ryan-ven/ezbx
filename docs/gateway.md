@@ -98,7 +98,7 @@ Rules for every mode:
 - **Blocked requests are logged** with the host and the reason, so `ezbx net allow <domain>` is easy to use. The 403 reply says what to run on the host.
 - **Tools that ignore proxy settings** simply fail, because the box has no other route. That is the desired result.
 
-**The allowlist** holds host names, never addresses. `example.com` matches only that name. `*.example.com` matches names under it, such as `api.example.com`, but not `example.com` itself, so each is approved on purpose. A wildcard over a top-level domain (`*.com`) is refused.
+**The allowlist** holds host names, never addresses. Besides `--allow`, `--allow-file FILE` adds the hosts in a file, one per line (`#` starts a comment), read when the gateway starts; a missing or broken file stops the gateway rather than starting it with a shorter list. `ezbx up` uses it for the hosts approved with `ezbx net allow`. `example.com` matches only that name. `*.example.com` matches names under it, such as `api.example.com`, but not `example.com` itself, so each is approved on purpose. A wildcard over a top-level domain (`*.com`) is refused.
 
 The mode is changed through the admin API and takes effect for new connections at once. Open tunnels the new rules don't allow are closed, and their log line says `"closed": "network_tightened"`.
 

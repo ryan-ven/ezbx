@@ -92,6 +92,19 @@ The setup above, made by `ezbx up` from an `ezbx.toml` instead of by hand, with 
 
 Not covered: Linux (a gateway that isn't root may not be able to write its log into a folder owned by the host user), a restart of Docker Desktop with the box up (both containers have the restart policy `unless-stopped`), and engines that need a key.
 
+### `ezbx shell`, `ezbx net` and `ezbx engine use` (same day)
+
+A box made by `ezbx up` in front of Strata, network `off` in `ezbx.toml`. The doctor passed 21 of 21.
+
+- `ezbx net` listed `registry.npmjs.org` as blocked after `npm view` failed in the box. (It also lists `example.com`, which the doctor's own checks ask for.)
+- `ezbx net allow registry.npmjs.org` saved the host and added it live; with the network still `off`, npm stayed blocked. After `ezbx net allow`, npm worked and `git ls-remote https://github.com/...` was refused. After `ezbx net on`, GitHub answered. After `ezbx net off`, npm was blocked again.
+- **Restart:** after `docker restart` of the gateway, the mode was `off` again (from `ezbx.toml`) and `registry.npmjs.org` was still allowed (read from the saved file). `ezbx net remove` took it out of the file and the running gateway.
+- `ezbx engine use` found Strata again and refreshed Pi's config in the box. `ezbx engine use strata --url` with an address where nothing listens was refused and left the gateway as it was.
+- `ezbx shell` ran as the `agent` user in `/workspace`. `ezbx shell pi -- -p ...` answered through Strata in about 1.5 seconds and wrote a file into the workspace with its write tool.
+- **Found and fixed:** the first `ezbx shell pi` failed with "cannot attach stdin to a TTY-enabled container", because Windows reports the `NUL` device as a character device, which looked like a terminal. The check now asks the Windows console itself (and rules out `/dev/null` elsewhere).
+
+Not covered: Pi's full-screen interactive mode, which needs a person at a real terminal.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.
