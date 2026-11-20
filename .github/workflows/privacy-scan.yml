@@ -10,10 +10,13 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to an exact commit, so a moved tag cannot change what runs.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # the whole history, so old commits are checked too
+          persist-credentials: false
       - name: Test the scanner itself
         run: sh scripts/privacy-scan-test.sh
       - name: Scan tracked files
