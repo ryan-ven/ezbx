@@ -1,0 +1,9 @@
+# Send Docker only what the images need. Everything else, including any
+# private or agent files, stays out of the build.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/
+!providers/
+!tools/
