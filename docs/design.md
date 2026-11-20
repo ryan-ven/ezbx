@@ -52,7 +52,7 @@ One small service that does four jobs:
 | **Egress control** | A forward proxy that applies the current network mode (section 5). |
 | **Request log** | Records model, token counts, latency and blocked requests, for debugging and for judging a model. |
 
-Open question: gateway language and shape. Leading option is one small Go binary, shipped in a minimal image, reusing the CLI's code.
+Decided: the gateway is one small Go binary, shipped in a minimal image and sharing code with the CLI.
 
 ## 4. Engine adapters
 
@@ -91,6 +91,7 @@ Containers reach the host through a host alias. On Docker Desktop this worked fo
 - Switching modes only changes the gateway's rules, so running sessions continue.
 - Each harness manifest lists the domains it needs, and `allow` merges the lists of the installed harnesses.
 - Cloud-backed harnesses won't work in `off`. `ezbox doctor` says so.
+- The default allowlist is tiny: package registries and the code host. Everything else is added on demand. The gateway logs blocked requests, and `ezbox net allow <domain>` approves one. Allowlists are plain data files, so people can contribute to them.
 
 ## 6. The box
 
@@ -146,7 +147,7 @@ ezbox doctor             check Docker, engine, gateway, mounts and network
 ezbox reset              rebuild from scratch; backs up config first and refuses to continue if the backup fails
 ```
 
-Language: one cross-platform binary (Go is the leading option). The first milestone targets Windows with Docker Desktop, and the code stays portable.
+Language: Go, built as one cross-platform binary. The first milestone targets Windows with Docker Desktop, and the code avoids Windows-only assumptions so Linux can follow.
 
 ## 10. Configuration and privacy
 
@@ -176,11 +177,20 @@ It does not fully protect against:
 3. **0.3:** the remaining harnesses, `review`, starter profiles (web dev, Python/ML, research, offline).
 4. **Later:** tray or GUI front end, other container runtimes, a tool-calling self-test for models.
 
-## 13. Open questions
+## 13. Decisions
 
-1. Gateway and CLI language (Go vs another).
-2. Allowlist format and defaults, and who maintains them.
-3. Whether the first release is Windows-only or includes Linux and macOS.
-4. How to handle engines that bind only to loopback on non-Desktop setups.
-5. Per-project boxes in 0.1, or a single box.
-6. Which harness goes second, after the first.
+| # | Question | Decision |
+|---|---|---|
+| 1 | Language | Go, for the CLI and the gateway. One static binary, easy cross-compiling, and a standard library that covers the proxy work. |
+| 2 | Allowlist | Tiny default list plus each harness's domains. Blocked requests are logged and approved with `ezbox net allow`. Lists are data files. |
+| 3 | Platforms | Windows with Docker Desktop first. No Windows-only assumptions in the code. Linux next, macOS later. |
+| 4 | Engines bound to loopback outside Docker Desktop | Version 0.1 supports Docker Desktop only. `ezbox doctor` detects the problem and explains the fix. A proper helper comes later. |
+| 5 | Boxes | One box in 0.1 holding many projects. The config format allows several named boxes so they can be added later without breaking anything. |
+| 6 | Second harness | Pi first, then OpenCode. OpenCode still needs its local-endpoint support and install method verified before it is committed to. |
+
+## 14. Open questions
+
+1. Exact format of `ezbox.toml` (box, engine and harness sections).
+2. How `ezbox init` presents the choices (plain prompts, or a richer text interface).
+3. Where snapshots and the gateway log live on disk by default.
+4. How the gateway proves which engine and model it is forwarding to, so `doctor` can confirm the path end to end.
