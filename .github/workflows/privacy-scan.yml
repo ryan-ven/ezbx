@@ -12,5 +12,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Scan tracked files for secrets and personal data
+        with:
+          fetch-depth: 0 # the whole history, so old commits are checked too
+      - name: Test the scanner itself
+        run: sh scripts/privacy-scan-test.sh
+      - name: Scan tracked files
         run: sh scripts/privacy-scan.sh --all
+      - name: Scan every commit in history
+        env:
+          # Optional repository secret, one term per line. Without it the
+          # private-terms check is skipped here (the local hook still runs it).
+          EZBX_PRIVATE_TERMS: ${{ secrets.EZBX_PRIVATE_TERMS }}
+        run: sh scripts/privacy-scan.sh --history
