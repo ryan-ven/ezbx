@@ -9,13 +9,13 @@ A harness is an agent tool that runs inside the box. Each lives in `harnesses/<i
 | `schema` | yes | Manifest format version. Currently `1`. |
 | `id` | yes | Short lowercase name, also the folder name. |
 | `name` | yes | Display name. |
-| `kind` | yes | `coding` or `assistant`. Used to group harnesses in `ezbox init`. |
+| `kind` | yes | `coding` or `assistant`. Used to group harnesses in `ezbx init`. |
 | `install` | yes | How it is installed (see below). The version must be pinned. |
 | `binary` | yes | Command name that must exist after install. |
 | `runtime` | yes | `node`, `python` or `binary`. Tells the image builder which toolchain to include. |
 | `env` | no | Environment variables set for this harness. Never secrets. |
 | `config` | no | Config files to generate (see below). |
-| `launch` | yes | Command and working directory used by `ezbox shell <id>`. |
+| `launch` | yes | Command and working directory used by `ezbx shell <id>`. |
 | `autonomy` | yes | The flag that skips approval prompts, or `null` with a note. Only ever used inside the box. |
 | `network` | yes | Domains the harness needs in `allow` mode. `optional` groups are off unless chosen. |
 | `secrets` | yes | Names of secrets it can use. Values are never stored here. Usually empty, because the gateway injects keys. |
@@ -64,7 +64,7 @@ This produces one entry per model the engine reports.
 | Name | Source |
 |---|---|
 | `id` | Read from the engine's model list. |
-| `name` | The id by default. Can be overridden in `ezbox.local.toml`. |
+| `name` | The id by default. Can be overridden in `ezbx.local.toml`. |
 | `contextWindow` | Read from the engine when it reports one, otherwise a configured default. |
 | `maxTokens` | A configured default. |
 | `reasoning` | A configured default, because engines don't report it consistently. |
@@ -78,13 +78,13 @@ This produces one entry per model the engine reports.
 
 `status` is one of:
 - `verified`: installed and used in an EZBox image, with the date and version recorded.
-- `observed-in-prior-setup`: worked elsewhere, still to be re-checked here. `ezbox init` marks these as unverified.
+- `observed-in-prior-setup`: worked elsewhere, still to be re-checked here. `ezbx init` marks these as unverified.
 - `unverified`: listed only. Not offered by default.
 
 ## Rules
 
 1. No secrets in a manifest, ever. Keys stay on the host and the gateway injects them.
-2. Pin exact versions and record them in `ezbox.lock`.
+2. Pin exact versions and record them in `ezbx.lock`.
 3. Do not mark a harness `verified` until it has actually been built and used in an EZBox image.
 4. Keep `network.domains` as small as possible. Anything optional goes under `optional`.
 5. Autonomy flags are documented per harness and checked against that harness's current docs.

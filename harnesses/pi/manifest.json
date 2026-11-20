@@ -24,7 +24,7 @@
       "mode": "0600",
       "content": {
         "providers": {
-          "ezbox": {
+          "ezbx": {
             "baseUrl": "${gateway.baseUrl}",
             "api": "openai-completions",
             "apiKey": "${gateway.key}",
@@ -52,7 +52,7 @@
       "path": "~/.pi/agent/settings.json",
       "mode": "0600",
       "content": {
-        "defaultProvider": "ezbox",
+        "defaultProvider": "ezbx",
         "defaultModel": "${models.default.id}",
         "defaultThinkingLevel": "medium"
       }

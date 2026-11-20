@@ -24,16 +24,16 @@ Ports are hints, never proof. Different versions and user setups use different p
 2. Probe each adapter's hint ports on the loopback address only, with a very short timeout. Probes are plain GET requests with no key and no data about you.
 3. Fingerprint each answer using the adapter's `probes`. An engine counts as detected only if its expected fields are present.
 4. When more than one adapter matches the same server (some engines share routes), the more specific one wins. Strata and llama.cpp both expose a health route, for example, and Strata's includes extra fields.
-5. Report what was found. If several engines are running, `ezbox init` asks which to use.
+5. Report what was found. If several engines are running, `ezbx init` asks which to use.
 
-If detection fails, you can give the address yourself in `ezbox.local.toml`.
+If detection fails, you can give the address yourself in `ezbx.local.toml`.
 
 ## Model facts
 
 The gateway and CLI read the engine's model list and fill in what the engine reports.
 
 - **Strata** reports context size and image input in its model list, and a loaded state.
-- **LM Studio, Ollama and llama.cpp** report little in the standard list. EZBox uses configured defaults (and can later ask each engine's native API) and lets you override them in `ezbox.local.toml`.
+- **LM Studio, Ollama and llama.cpp** report little in the standard list. EZBox uses configured defaults (and can later ask each engine's native API) and lets you override them in `ezbx.local.toml`.
 
 These facts feed the harness config generator (see `harness-manifest.md`).
 

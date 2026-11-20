@@ -17,7 +17,7 @@ EZBox is a planned one-click setup for running AI coding and agent tools inside 
 
 ## Planned first version
 
-1. An `ezbox init` setup that detects running engines and asks which harnesses to install.
+1. An `ezbx init` setup that detects running engines and asks which harnesses to install.
 2. The gateway and the network switch.
 3. Snapshots of the writable folder, so an agent session can be undone.
 

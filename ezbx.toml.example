@@ -1,10 +1,10 @@
-# ezbox.toml.example
-# Copy this file to ezbox.local.toml and edit it. The local copy is ignored by
+# ezbx.toml.example
+# Copy this file to ezbx.local.toml and edit it. The local copy is ignored by
 # git, so your real paths and choices never reach the public repository.
 version = 1
 
 [box.main]
-workspace = "~/ezbox/workspace"   # the ONLY folder the agent can write to
+workspace = "~/ezbx/workspace"   # the ONLY folder the agent can write to
 runtime   = "docker"
 memory    = "8g"
 network   = "off"                 # off | allow | on

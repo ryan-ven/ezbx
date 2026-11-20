@@ -48,16 +48,16 @@ Responses that stream (server-sent events) are forwarded as they arrive, with no
 
 Every model response carries:
 
-- `X-Ezbox-Engine`: the engine id (for example `strata`).
-- `X-Ezbox-Model`: the model name from the request.
+- `X-Ezbx-Engine`: the engine id (for example `strata`).
+- `X-Ezbx-Model`: the model name from the request.
 
-These let `ezbox doctor` prove which engine answered (open question 4 in `design.md`).
+These let `ezbx doctor` prove which engine answered (open question 4 in `design.md`).
 
 ## 4. Switching engines
 
-1. `ezbox engine use <id>` updates the config and calls the admin API.
+1. `ezbx engine use <id>` updates the config and calls the admin API.
 2. The gateway swaps its upstream. Requests already in flight finish on the old engine, and new requests go to the new one.
-3. If the model list changed, the CLI regenerates harness configs (`ezbox harness sync`).
+3. If the model list changed, the CLI regenerates harness configs (`ezbx harness sync`).
 
 Reaching the host: on Docker Desktop the gateway uses the host alias. That route worked for an engine bound to loopback in the predecessor setup. Other setups come later (decision 4).
 
@@ -76,7 +76,7 @@ Rules for every mode:
 - **Hostnames, not content.** HTTPS goes through a plain tunnel and is never decrypted, so filtering is by domain. There is no path-level filtering.
 - **Local networks stay blocked**, even in `on`. The proxy refuses private ranges, loopback, link-local and cloud metadata addresses, plus the host alias, unless the config explicitly allows one. Without this, the box could reach other services on your PC or LAN through the gateway.
 - **Resolve once, then connect.** The gateway resolves the name itself and checks the resulting address against the blocked ranges before connecting, so a hostname can't point at a private address.
-- **Blocked requests are logged** with the host and the reason, so `ezbox net allow <domain>` is easy to use.
+- **Blocked requests are logged** with the host and the reason, so `ezbx net allow <domain>` is easy to use.
 - **Tools that ignore proxy settings** simply fail, because the box has no other route. That is the desired result.
 
 The mode is changed through the admin API and takes effect for new connections. Open tunnels are closed when the mode tightens.
@@ -105,7 +105,7 @@ Prompts and responses are **not** logged unless you turn that on. Logs rotate by
 | `/readyz` | The upstream engine answered and listed at least one model. |
 | admin `/admin/status` | Engine, upstream address, model count, network mode and counters. |
 
-### What `ezbox doctor` checks
+### What `ezbx doctor` checks
 
 1. Gateway running and ready.
 2. From inside the box, the model list comes back through the gateway.
@@ -118,7 +118,7 @@ Errors use the OpenAI-style error body so harnesses display them sensibly.
 
 | Situation | Response |
 |---|---|
-| Engine not reachable | 502, with a message telling you to run `ezbox doctor`. |
+| Engine not reachable | 502, with a message telling you to run `ezbx doctor`. |
 | Engine still loading a model | The engine's own error, passed through. |
 | Proxy blocked | 403 with the reason in the body, and a log line. |
 

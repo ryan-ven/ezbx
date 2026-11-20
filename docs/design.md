@@ -78,7 +78,7 @@ Engines planned for the first set: Strata, LM Studio, Ollama and llama.cpp's ser
 
 ### Host reachability
 
-Containers reach the host through a host alias. On Docker Desktop this worked for an engine bound to loopback. On other setups it may not. The gateway owns this detail, and `ezbox doctor` tests it.
+Containers reach the host through a host alias. On Docker Desktop this worked for an engine bound to loopback. On other setups it may not. The gateway owns this detail, and `ezbx doctor` tests it.
 
 ## 5. Network modes
 
@@ -90,17 +90,17 @@ Containers reach the host through a host alias. On Docker Desktop this worked fo
 
 - Switching modes only changes the gateway's rules, so running sessions continue.
 - Each harness manifest lists the domains it needs, and `allow` merges the lists of the installed harnesses.
-- Cloud-backed harnesses won't work in `off`. `ezbox doctor` says so.
-- The default allowlist is tiny: package registries and the code host. Everything else is added on demand. The gateway logs blocked requests, and `ezbox net allow <domain>` approves one. Allowlists are plain data files, so people can contribute to them.
+- Cloud-backed harnesses won't work in `off`. `ezbx doctor` says so.
+- The default allowlist is tiny: package registries and the code host. Everything else is added on demand. The gateway logs blocked requests, and `ezbx net allow <domain>` approves one. Allowlists are plain data files, so people can contribute to them.
 
 ## 6. The box
 
 - **User:** an unprivileged `agent` user. No `sudo`, no setuid tricks, `no-new-privileges` on, all Linux capabilities dropped.
 - **Writable:** only the workspace folder you choose (`/workspace`) plus the agent's own home volume.
-- **Optional read-only view:** you may expose extra host folders read-only. Common secret files are masked with empty overlays, and the `ezbox` scanner warns about other secret-like files in anything exposed.
+- **Optional read-only view:** you may expose extra host folders read-only. Common secret files are masked with empty overlays, and the `ezbx` scanner warns about other secret-like files in anything exposed.
 - **No Docker socket**, ever.
 - **Resource limits:** memory, CPU and process limits with sensible defaults, adjustable.
-- **Admin access:** reserved for the human. `ezbox admin shell` starts a separate, short-lived admin container from the same image, because root in the main box has no capabilities. Admin tasks such as system packages happen there and are baked in on rebuild.
+- **Admin access:** reserved for the human. `ezbx admin shell` starts a separate, short-lived admin container from the same image, because root in the main box has no capabilities. Admin tasks such as system packages happen there and are baked in on rebuild.
 
 Future option: a read-only root filesystem with tmpfs for scratch space.
 
@@ -123,37 +123,37 @@ Each harness is a folder, `harnesses/<id>/`, with a manifest and an install scri
 ```
 
 - **Verified:** nothing ships without a recorded install check.
-- **Pinned:** versions are pinned and recorded in `ezbox.lock`, so a rebuild gives the same box.
+- **Pinned:** versions are pinned and recorded in `ezbx.lock`, so a rebuild gives the same box.
 - **Config generation:** the harness template is filled from the selected engine adapter's model list, so each harness points at the gateway automatically.
 - **Candidates:** Pi, oh-my-pi (a separate project from Pi), OpenCode, Codex CLI, Claude Code, Hermes Agent and OpenClaw. Daily-driver agents such as Hermes Agent and OpenClaw may need extra services or different runtimes, so they come after the coding harnesses.
 - **Autonomy flag:** each harness's "skip approvals" mode is set only inside the box and is documented per harness (**verify** names against current docs).
 
 ## 8. Snapshots and rewind
 
-Before each session, EZBox snapshots the workspace into a repository that lives outside the box's mounts, so the agent can't edit its own history. `ezbox rewind` restores the last snapshot. `ezbox review` shows what changed since it.
+Before each session, EZBox snapshots the workspace into a repository that lives outside the box's mounts, so the agent can't edit its own history. `ezbx rewind` restores the last snapshot. `ezbx review` shows what changed since it.
 
 ## 9. Command line
 
 ```text
-ezbox init               guided setup: engine, harnesses, folders
-ezbox up | down          start or stop the gateway and box
-ezbox shell [harness]    open a terminal in the box, or launch a harness
-ezbox net off|allow|on   change the network mode
-ezbox engine detect|use|status
-ezbox harness add|remove|list
-ezbox snapshot | rewind | review
-ezbox admin shell        human-only root shell in a temporary admin container
-ezbox doctor             check Docker, engine, gateway, mounts and network
-ezbox reset              rebuild from scratch; backs up config first and refuses to continue if the backup fails
+ezbx init               guided setup: engine, harnesses, folders
+ezbx up | down          start or stop the gateway and box
+ezbx shell [harness]    open a terminal in the box, or launch a harness
+ezbx net off|allow|on   change the network mode
+ezbx engine detect|use|status
+ezbx harness add|remove|list
+ezbx snapshot | rewind | review
+ezbx admin shell        human-only root shell in a temporary admin container
+ezbx doctor             check Docker, engine, gateway, mounts and network
+ezbx reset              rebuild from scratch; backs up config first and refuses to continue if the backup fails
 ```
 
 Language: Go, built as one cross-platform binary. The first milestone targets Windows with Docker Desktop, and the code avoids Windows-only assumptions so Linux can follow.
 
 ## 10. Configuration and privacy
 
-- `ezbox.toml.example`: committed, placeholders only.
-- `ezbox.local.toml`: gitignored. Holds machine paths and choices.
-- `ezbox.lock`: committed. Pinned harness and image versions.
+- `ezbx.toml.example`: committed, placeholders only.
+- `ezbx.local.toml`: gitignored. Holds machine paths and choices.
+- `ezbx.lock`: committed. Pinned harness and image versions.
 - Secrets live in the host's credential store or a gitignored env file, never in the repo or the image.
 - The repo has a pre-commit and CI privacy scan. Docs use placeholder paths such as `C:\Users\Example`.
 
@@ -182,15 +182,15 @@ It does not fully protect against:
 | # | Question | Decision |
 |---|---|---|
 | 1 | Language | Go, for the CLI and the gateway. One static binary, easy cross-compiling, and a standard library that covers the proxy work. |
-| 2 | Allowlist | Tiny default list plus each harness's domains. Blocked requests are logged and approved with `ezbox net allow`. Lists are data files. |
+| 2 | Allowlist | Tiny default list plus each harness's domains. Blocked requests are logged and approved with `ezbx net allow`. Lists are data files. |
 | 3 | Platforms | Windows with Docker Desktop first. No Windows-only assumptions in the code. Linux next, macOS later. |
-| 4 | Engines bound to loopback outside Docker Desktop | Version 0.1 supports Docker Desktop only. `ezbox doctor` detects the problem and explains the fix. A proper helper comes later. |
+| 4 | Engines bound to loopback outside Docker Desktop | Version 0.1 supports Docker Desktop only. `ezbx doctor` detects the problem and explains the fix. A proper helper comes later. |
 | 5 | Boxes | One box in 0.1 holding many projects. The config format allows several named boxes so they can be added later without breaking anything. |
 | 6 | Second harness | Pi first, then OpenCode. OpenCode still needs its local-endpoint support and install method verified before it is committed to. |
 
 ## 14. Open questions
 
-1. Exact format of `ezbox.toml` (box, engine and harness sections).
-2. How `ezbox init` presents the choices (plain prompts, or a richer text interface).
+1. Exact format of `ezbx.toml` (box, engine and harness sections).
+2. How `ezbx init` presents the choices (plain prompts, or a richer text interface).
 3. Where snapshots and the gateway log live on disk by default.
 4. How the gateway proves which engine and model it is forwarding to, so `doctor` can confirm the path end to end.
