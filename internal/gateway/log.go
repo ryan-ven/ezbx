@@ -19,6 +19,7 @@ type entry struct {
 	Status int    `json:"status"`
 	Ms     int64  `json:"ms"`
 	TTFBMs int64  `json:"ttfb_ms"`
+	End    string `json:"end,omitempty"` // client_gone or engine_idle when a reply was cut short
 }
 
 type logger struct {
