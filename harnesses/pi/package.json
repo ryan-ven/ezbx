@@ -1,0 +1,8 @@
+{
+  "name": "ezbx-harness-pi",
+  "private": true,
+  "description": "Pins Pi for the EZBox image. package-lock.json pins everything Pi pulls in, with integrity hashes.",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.5.0"
+  }
+}

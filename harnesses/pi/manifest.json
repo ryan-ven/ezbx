@@ -8,7 +8,8 @@
     "type": "npm",
     "package": "@earendil-works/pi-coding-agent",
     "version": "1.5.0",
-    "script": "install.sh"
+    "script": "install.sh",
+    "lockfile": "package-lock.json"
   },
 
   "binary": "pi",
@@ -80,9 +81,9 @@
 
   "verified": {
     "version": "1.5.0",
-    "status": "observed-in-prior-setup",
-    "observedOn": "2026-11-06",
-    "reverify": true,
-    "notes": "Install and local-model use were observed in a private predecessor setup. Re-verify on the first EZBox image build before marking verified."
+    "status": "verified",
+    "observedOn": "2026-11-20",
+    "reverify": false,
+    "notes": "Installed from the lockfile with install scripts off, in the first EZBox box image. pi -p answered through the gateway on the isolated network, using a fake engine. Not yet checked: a real model, tool calls, the interactive interface."
   }
 }
