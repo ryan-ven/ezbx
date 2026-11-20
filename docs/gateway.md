@@ -73,7 +73,9 @@ These let `ezbx doctor` prove which engine answered (open question 4 in `design.
 2. The gateway swaps its upstream. Requests already in flight finish on the old engine, and new requests go to the new one.
 3. If the model list changed, the CLI regenerates harness configs (`ezbx harness sync`).
 
-Reaching the host: on Docker Desktop the gateway uses the host alias. That route worked for an engine bound to loopback in the predecessor setup. Other setups come later (decision 4).
+Reaching the host: on Docker Desktop the gateway uses the host alias, and this works for an engine bound to the host's loopback address (tested with Strata). Other setups come later (decision 4).
+
+**The Host header.** Some engines protect themselves against DNS rebinding by refusing any request whose `Host` header isn't a local name. Strata does, and refused `host.docker.internal:PORT` with 403. When the upstream is Docker Desktop's host alias (`host.docker.internal` or `gateway.docker.internal`), the gateway therefore sends `Host: localhost:PORT`. It still connects through the alias; only the name it presents changes. That is accurate, since the engine really is on the host's loopback. `--upstream-host` sets the header by hand for other setups. It takes only a host name or address with an optional port.
 
 ## 5. The egress proxy
 
@@ -126,7 +128,7 @@ Prompts and responses are **not** logged. A switch to log them, and rotation by 
 | Endpoint | Meaning |
 |---|---|
 | `/healthz` | The gateway process is alive. |
-| admin `/admin/ready` | The upstream engine answered and listed at least one model. Each call asks the engine, so it is on the admin API only, and the box's side has just `/healthz`. |
+| admin `/admin/ready` | The upstream engine answered and listed at least one model. Each call asks the engine, so it is on the admin API only, and the box's side has just `/healthz`. When it isn't ready, the reason says what happened: not reachable, the status code the engine answered with, a list that isn't JSON, or no models. |
 | admin `/admin/status` | Engine, upstream address, network mode and allowlist, proxy counters (allowed, blocked, failed, open) and uptime. |
 
 The gateway image has no shell or curl, so its Docker healthcheck runs `ezbx gateway health`, which exits 0 when `/healthz` answers.
@@ -209,7 +211,7 @@ Built and tested (`internal/gateway`, run with `ezbx gateway serve`):
 
 Each proxy protection was mutation-checked: turning it off makes a test fail.
 
-Checked against a real engine (Strata): readiness, model list, a normal chat reply and a streamed reply that arrived chunk by chunk. That check was done before the path checks, limits and memory budget were added.
+Checked against a real engine (Strata), with the hardened gateway in its container: readiness, the model list, a chat reply, a streamed reply that arrived chunk by chunk, a stream cancelled by the box, the path checks, and Pi using tools through it (see [isolation-test.md](isolation-test.md)).
 
 Not built yet: the engine unload call, a setting to allow a chosen local address, the cloud provider routes (design decision 8), and token usage in the log.
 

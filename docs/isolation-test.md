@@ -60,6 +60,18 @@ The gateway ran with the proxy on port 3128 (starting in `off`) and the admin AP
 - **Tightening:** with a tunnel to `example.com` open, switching from `on` to `allow` (npm registry only) closed it at once. The admin reply said one tunnel was closed, and its log line says `network_tightened`.
 - The admin token never appeared in the gateway log.
 
+### With a real engine (same day)
+
+Strata ran on the host, bound to its loopback address, with one model loaded (a reasoning model with a 262,144-token context and text and image input). The gateway forwarded to it through `host.docker.internal`.
+
+- `ezbx engine detect` on the host found it on its custom port through Strata's own status command, with the model's context size, input types and loaded state.
+- **Found and fixed:** Strata refused every request from the gateway with 403, because of its DNS rebinding protection: the Host header was `host.docker.internal:PORT`, which isn't a local name. Readiness hid this by saying "no models". The gateway now sends `Host: localhost:PORT` when the upstream is Docker Desktop's host alias, and readiness reports the engine's status code (see [gateway.md](gateway.md), section 4).
+- After the fix, from the box: the model list, a chat reply, and a streamed reply that arrived in 10 chunks (first after 7 ms). A stream cancelled by the box was logged as 499 `client_gone`, and the gateway kept working. `/v1/../props`, `/v1/%2e%2e/props`, `/props`, `/readyz` and `DELETE` were refused.
+- **Pi with the real model**, on the isolated network: it answered a plain prompt, used its read tool to find a word in a workspace file, and used its write tool to create a file with exact content, which appeared in the workspace folder on the host. Each took 3 to 7 seconds. Every request went through the gateway.
+- The model is a reasoning model: with a 16-token limit, the reply stopped inside its reasoning with no answer. Pi's config needed `reasoning: true` and room for the answer (8,192 tokens). Engines don't report this, so the config generator must take it from a default or the user.
+
+Not covered: Pi's interactive interface.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.

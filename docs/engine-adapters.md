@@ -66,7 +66,7 @@ If an engine requires a key, you name an environment variable in your local conf
 
 ## Reaching the engine
 
-Engines normally listen on the loopback address only, which is the safe default. The gateway reaches them through the host alias on Docker Desktop. Binding an engine to all interfaces just to make this work isn't recommended, because some engines have no authentication (LM Studio's docs warn about this). Setups other than Docker Desktop are covered by design decision 4.
+Engines normally listen on the loopback address only, which is the safe default. The gateway reaches them through the host alias on Docker Desktop, and presents itself as `localhost`, because engines with DNS rebinding protection (Strata, for one) refuse other host names (see [gateway.md](gateway.md), section 4). Binding an engine to all interfaces just to make this work isn't recommended, because some engines have no authentication (LM Studio's docs warn about this). Setups other than Docker Desktop are covered by design decision 4.
 
 ## Status of each adapter
 

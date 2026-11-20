@@ -84,6 +84,6 @@
     "status": "verified",
     "observedOn": "2026-11-20",
     "reverify": false,
-    "notes": "Installed from the lockfile with install scripts off, in the first EZBox box image. pi -p answered through the gateway on the isolated network, using a fake engine. Not yet checked: a real model, tool calls, the interactive interface."
+    "notes": "Installed from the lockfile with install scripts off, in the first EZBox box image. On the isolated network, through the gateway, pi -p answered with a fake engine and with a real local model on Strata, and used its read and write tools in /workspace. A reasoning model needs reasoning set to true and room for the answer in maxTokens. Not yet checked: the interactive interface."
   }
 }
