@@ -18,7 +18,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -buildid=" -o /o
 FROM scratch
 COPY --from=build /out/ezbx /ezbx
 USER 65532:65532
-EXPOSE 8000
+# 8000 is the model route and 3128 the egress proxy. The admin API listens
+# only on the container's own loopback and is never published.
+EXPOSE 8000 3128
 LABEL ezbx.managed="true"
+# There is no shell or curl in the image, so the healthcheck uses ezbx itself.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD ["/ezbx", "gateway", "health", "--addr", "127.0.0.1:8000"]
 ENTRYPOINT ["/ezbx"]
 CMD ["gateway", "serve", "--listen", "0.0.0.0:8000"]

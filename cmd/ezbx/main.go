@@ -28,11 +28,24 @@ Usage:
   ezbx engine detect [--json] [--timeout 500ms] [--url ADDRESS]...
   ezbx gateway serve [--upstream ADDRESS] [--engine ID] [--listen ADDRESS]
                      [--key-env NAME] [--log FILE]
+                     [--proxy ADDRESS] [--network off|allow|on] [--allow HOST]...
+                     [--admin 127.0.0.1:PORT --admin-token-file FILE]
+  ezbx gateway admin [--addr 127.0.0.1:PORT] [--token-file FILE] CALL
+  ezbx gateway health [--addr 127.0.0.1:PORT]
 
 Commands:
   engine detect   Find inference engines running on this computer.
-  gateway serve   Run the model route: forwards /v1/... to one engine.
+  gateway serve   Run the gateway: the model route (/v1/... to one engine),
+                  and optionally the egress proxy and the admin API.
                   Without --upstream it uses the one engine it detects.
+  gateway admin   Call the admin API. Meant to run inside the gateway
+                  container through docker exec. CALL is one of:
+                    status
+                    engine UPSTREAM [ID]
+                    network off|allow|on [HOST]...
+                    allow HOST
+  gateway health  Exit 0 if the gateway answers /healthz, for Docker's
+                  healthcheck.
 `
 
 func main() {
@@ -44,8 +57,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) >= 2 && args[0] == "engine" && args[1] == "detect" {
 		return runDetect(args[2:], stdout, stderr)
 	}
-	if len(args) >= 2 && args[0] == "gateway" && args[1] == "serve" {
-		return runGateway(args[2:], stdout, stderr)
+	if len(args) >= 2 && args[0] == "gateway" {
+		switch args[1] {
+		case "serve":
+			return runGateway(args[2:], stdout, stderr)
+		case "admin":
+			return runAdmin(args[2:], stdout, stderr)
+		case "health":
+			return runHealth(args[2:], stdout, stderr)
+		}
 	}
 	fmt.Fprint(stderr, usage)
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {

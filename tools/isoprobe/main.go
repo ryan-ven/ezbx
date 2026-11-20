@@ -10,6 +10,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -61,6 +62,10 @@ func run(args []string, out io.Writer) int {
 	fs.Var(&scan, "scan", "host whose TCP ports must all be closed, except those given with -open (repeatable)")
 	fs.Var(&open, "open", "host:port that -scan expects to be open (repeatable)")
 	fs.Var(&resolve, "resolve", "name to resolve and print, with no pass or fail (repeatable)")
+	var proxyAllow, proxyDeny list
+	proxy := fs.String("proxy", "", "host:port of an HTTP proxy for -proxy-allow and -proxy-deny")
+	fs.Var(&proxyAllow, "proxy-allow", "host:port the proxy must open a CONNECT tunnel to (repeatable)")
+	fs.Var(&proxyDeny, "proxy-deny", "host:port the proxy must refuse to CONNECT to (repeatable)")
 	serve := fs.String("serve", "", "listen on this TCP address forever, as a target for other probes")
 	timeout := fs.Duration("timeout", 2*time.Second, "time limit for each connection or lookup")
 	if err := fs.Parse(args); err != nil {
@@ -96,6 +101,18 @@ func run(args []string, out io.Writer) int {
 	}
 	for _, host := range scan {
 		p.scan(host, open)
+	}
+	if (len(proxyAllow) > 0 || len(proxyDeny) > 0) && *proxy == "" {
+		fmt.Fprintln(out, "-proxy-allow and -proxy-deny need -proxy")
+		return 2
+	}
+	for _, target := range proxyAllow {
+		status := p.connectVia(*proxy, target)
+		p.report(status == "200", "via-proxy", target, "proxy answered "+status)
+	}
+	for _, target := range proxyDeny {
+		status := p.connectVia(*proxy, target)
+		p.report(status != "200", "proxy-deny", target, "proxy answered "+status)
 	}
 	if p.failed {
 		return 1
@@ -170,6 +187,28 @@ func (p *probe) denyDNS(ip string) {
 		return
 	}
 	p.report(false, "deny-dns", target, "answered with "+strconv.Itoa(n)+" bytes")
+}
+
+// connectVia asks the proxy for a CONNECT tunnel to target and returns the
+// status code it answered with, or a short error.
+func (p *probe) connectVia(proxy, target string) string {
+	c, err := net.DialTimeout("tcp", proxy, p.timeout)
+	if err != nil {
+		return "nothing (" + shortErr(err) + ")"
+	}
+	defer c.Close()
+	// Allow time for the proxy's own lookup and connection.
+	_ = c.SetDeadline(time.Now().Add(p.timeout * 10))
+	fmt.Fprintf(c, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", target, target)
+	line, err := bufio.NewReader(c).ReadString('\n')
+	if err != nil {
+		return "nothing (" + shortErr(err) + ")"
+	}
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return "garbage"
+	}
+	return fields[1]
 }
 
 // dnsQuery builds a minimal DNS question for the A record of name.
