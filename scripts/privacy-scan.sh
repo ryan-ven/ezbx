@@ -40,7 +40,7 @@ ROOT=$(git rev-parse --show-toplevel)
 TERMS="$ROOT/.githooks/private-terms.txt"
 
 # Regular expressions for things that must never be published.
-PATTERNS='[A-Za-z]:\\(Users|My Workspace|Docker|LLM)|sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+PATTERNS='[A-Za-z]:\\[A-Za-z]|sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 # Matches that are fine (placeholders and GitHub's no-reply addresses).
 ALLOWED='privacy-ok|Users[\\/]Example|@example\.|noreply|@localhost'
 
