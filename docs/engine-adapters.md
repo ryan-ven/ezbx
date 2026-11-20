@@ -22,18 +22,41 @@ Ports are hints, never proof. Different versions and user setups use different p
 
 1. If an adapter has a `cli` status command and that program is installed, ask it for running servers. This finds engines on custom ports.
 2. Probe each adapter's hint ports on the loopback address only, with a very short timeout. Probes are plain GET requests with no key and no data about you.
-3. Fingerprint each answer using the adapter's `probes`. An engine counts as detected only if its expected fields are present.
-4. When more than one adapter matches the same server (some engines share routes), the more specific one wins. Strata and llama.cpp both expose a health route, for example, and Strata's includes extra fields.
+3. Fingerprint each answer using the adapter's `probes`. An engine counts as detected only if every required probe answers with what it expects (see below).
+4. When more than one adapter matches the same server (some engines share routes), the more specific one wins: the one whose probes checked the most fields. Strata and llama.cpp both expose a health route, for example, and Strata's includes extra fields.
 5. Report what was found. If several engines are running, `ezbx init` asks which to use.
 
+A server that offers an OpenAI-style model list but matches no specific adapter is reported as an **OpenAI-compatible server** (the `openai` adapter). It works with the gateway, but EZBox doesn't claim to know which engine it is. That adapter adds no ports of its own, and any specific adapter that matches wins over it.
+
 If detection fails, you can give the address yourself in `ezbx.local.toml`.
+
+### Probes
+
+Each probe is a GET to one path. Its `expect` says what the JSON reply must contain:
+
+- `hasFields`: paths that must lead to real (non-null) values. A path with `[]`, such as `data[].id`, needs a non-empty list.
+- `hasLists`: plain paths, such as `data`, that must be lists. An empty list counts, so an engine with no models loaded is still found.
+
+A probe must expect at least one thing. `"optional": true` makes a probe add to the score when it matches without being needed. Two probes may use the same path; it is fetched once.
+
+### Model facts in the adapter
+
+`models.id`, `contextWindow` and `input` point into the model list, for example `data[].meta.n_ctx`. `models.loaded` has one of two forms:
+
+| Form | Meaning |
+|---|---|
+| `data[].status.value == loaded` | A field in the model list equals a value. |
+| `/api/ps models[].name` | The model is loaded if another route lists its id there. If that route doesn't answer, loaded stays unknown. |
+
+Anything else is refused when adapters load, so a fact is never silently ignored.
 
 ## Model facts
 
 The gateway and CLI read the engine's model list and fill in what the engine reports.
 
 - **Strata** reports context size and image input in its model list, and a loaded state.
-- **LM Studio, Ollama and llama.cpp** report little in the standard list. EZBox uses configured defaults (and can later ask each engine's native API) and lets you override them in `ezbx.local.toml`.
+- **Ollama** reports which models are loaded through `/api/ps`.
+- **LM Studio, Ollama and llama.cpp** report little else in the standard list. LM Studio's native list (`/api/v1/models`) has `max_context_length` and `loaded_instances`, which are not read yet. EZBox uses configured defaults (and can later ask each engine's native API) and lets you override them in `ezbx.local.toml`.
 
 These facts feed the harness config generator (see `harness-manifest.md`).
 
@@ -50,9 +73,10 @@ Engines normally listen on the loopback address only, which is the safe default.
 | Engine | Status | Notes |
 |---|---|---|
 | Strata | **probed-live** (2026-11-20) | Detection fields and control commands were read from a running install. Context size and image input come from its model list. |
-| LM Studio | docs-only | Port, API style and the lms commands need confirming on a real install. |
+| LM Studio | docs-only | Recognised by its native `GET /api/v1/models` (LM Studio 0.4.0 and later, from its docs read 2026-11-20). Older versions, or one with its API token on, show up as a generic OpenAI-compatible server. The lms commands need confirming on a real install. |
 | Ollama | docs-only | The OpenAI-compatible base path is from official docs. The port, the running-models route and the unload call are from third-party guides. |
-| llama.cpp | docs-only | Port is disputed between sources. Detection only. |
+| llama.cpp | docs-only | Port is disputed between sources. Detection only. Recognised by `/health` with a `status` field, which is a weak sign: another server with such a route would be labelled llama.cpp. |
+| OpenAI-compatible | generic | The fallback for any server with an OpenAI-style model list. |
 
 Do not change a status to `verified` until the adapter has been exercised against a real install and the date recorded.
 
@@ -60,6 +84,7 @@ Do not change a status to `verified` until the adapter has been exercised agains
 
 - [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility) (official)
 - [LM Studio local server](https://lmstudio.ai/docs/local-server) (official)
+- [LM Studio REST API: list models](https://lmstudio.ai/docs/developer/rest/list) and [REST API v0](https://lmstudio.ai/docs/developer/rest/endpoints) (official)
 - [llama.cpp server README](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) (official, but not read in full here)
 - Third-party guides were used for Ollama's `/api/ps` and `keep_alive`, and for the llama.cpp port disagreement. They are flagged in the adapters.
 

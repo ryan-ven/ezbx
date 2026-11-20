@@ -126,7 +126,7 @@ Prompts and responses are **not** logged. A switch to log them, and rotation by 
 | Endpoint | Meaning |
 |---|---|
 | `/healthz` | The gateway process is alive. |
-| `/readyz` | The upstream engine answered and listed at least one model. Each call asks the engine, so it may move to the admin listener once that exists, leaving only `/healthz` on the box's side. |
+| admin `/admin/ready` | The upstream engine answered and listed at least one model. Each call asks the engine, so it is on the admin API only, and the box's side has just `/healthz`. |
 | admin `/admin/status` | Engine, upstream address, network mode and allowlist, proxy counters (allowed, blocked, failed, open) and uptime. |
 
 The gateway image has no shell or curl, so its Docker healthcheck runs `ezbx gateway health`, which exits 0 when `/healthz` answers.
@@ -162,6 +162,7 @@ Every call needs `Authorization: Bearer <token>`. The token is at least 32 chara
 | Call | Body | Purpose |
 |---|---|---|
 | `GET /admin/status` | | Current state (section 7). |
+| `GET /admin/ready` | | Whether the engine answers with at least one model. |
 | `PUT /admin/engine` | `{"upstream": "http://…", "engine": "id"}` | Switch the upstream engine. |
 | `PUT /admin/network` | `{"mode": "allow", "allow": ["registry.npmjs.org"]}` | Set the mode and replace the allowlist. The reply says how many tunnels were closed. |
 | `POST /admin/network/allow` | `{"domain": "github.com"}` | Add one entry and keep the mode. |
@@ -201,7 +202,7 @@ Built and tested (`internal/gateway`, run with `ezbx gateway serve`):
 - Limits for waiting on the engine to start a reply and for an engine that goes quiet mid-reply.
 - Key injection (the box's placeholder is dropped), and no `X-Forwarded-For` or `Forwarded`.
 - `X-Ezbx-Engine` and `X-Ezbx-Request-Id` on every reply from the engine, `X-Ezbx-Model` when the request named a model, and engine-set `X-Ezbx-*` headers removed.
-- `/healthz` and `/readyz`, OpenAI-style errors, a request size limit, a shared memory budget for request bodies, and JSON logging with no prompts, replies or keys (499 and `end` when a reply is cut short).
+- `/healthz` on the model route and readiness on the admin API, OpenAI-style errors, a request size limit, a shared memory budget for request bodies, and JSON logging with no prompts, replies or keys (499 and `end` when a reply is cut short).
 - Switching the upstream at run time, through the admin API.
 - The egress proxy (`--proxy`) with the `off`, `allow` and `on` modes, the allowlist, local-address blocking after one lookup, the port limit, plain HTTP, the connection limit, closing tunnels when the mode tightens, and logging of every request with its reason.
 - The admin API (`--admin`, loopback only, token required) and `ezbx gateway admin` to call it. `ezbx gateway health` for the Docker healthcheck.
