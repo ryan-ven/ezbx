@@ -105,6 +105,16 @@ A box made by `ezbx up` in front of Strata, network `off` in `ezbx.toml`. The do
 
 Not covered: Pi's full-screen interactive mode, which needs a person at a real terminal.
 
+### `ezbx init` (same day)
+
+From an empty `EZBX_HOME`, with Strata running, answers typed as a person would.
+
+- `init --plan` showed every question with its default and the plan, and created nothing.
+- `init` found Strata, asked whether its model is a reasoning model, offered Pi, took a workspace, network `off` and the default memory (8g, half of Docker's 31.3 GB, capped), showed the plan, and after "y" wrote `ezbx.toml` and ran `ezbx up`.
+- **Found and fixed:** the doctor at the end failed its one-token completion, because the model had just been loaded and shared the GPU with a game, and the check waited only 30 seconds. Run again a minute later, it passed 21 of 21. The check now waits up to 2 minutes and reports a timeout as a warning, since the model list had already come back through the gateway.
+- `init --yes` again: "Nothing to change". `init --yes --network allow` showed `network off -> allow`, kept the old file as `ezbx.toml.previous`, and didn't restart the running box. Pi answered through the box `init` made in about 3 seconds.
+- Answering "n" at the plan changed nothing, and input that ended early stopped with a clear message; neither created a file.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.

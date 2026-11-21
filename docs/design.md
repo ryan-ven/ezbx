@@ -1,6 +1,6 @@
 # EZBox design (draft 0.1)
 
-Status: first draft. Most of this is a proposal. Built so far: engine detection, the gateway (model route, egress proxy, admin API), config rendering for Pi, `ezbx doctor`, `ezbx up`/`down`, which create the networks, the gateway and the box from `ezbx.toml`, and `ezbx shell`, `ezbx net` and `ezbx engine use` for a running box. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
+Status: first draft. Most of this is a proposal. Built so far: engine detection, the gateway (model route, egress proxy, admin API), config rendering for Pi, `ezbx doctor`, `ezbx up`/`down`, which create the networks, the gateway and the box from `ezbx.toml`, `ezbx shell`, `ezbx net` and `ezbx engine use` for a running box, and `ezbx init`, the guided setup. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
 
 ## 1. Goal
 

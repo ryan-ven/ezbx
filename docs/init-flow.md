@@ -2,6 +2,16 @@
 
 `ezbx init` is the one command that takes a new user from nothing to a working box. This page describes what it asks, what it checks, what it writes and what happens when something goes wrong. Naming: the command and files are `ezbx`, the brand is EZBox.
 
+**Built.** What the first version does differently from the design below, or doesn't do yet:
+
+- `--config FILE` is the config file to read and write, the same as for every other command (not a separate file of answers). If it exists, `init` starts from it.
+- `--plan` never prompts: it takes the defaults and flags, prints the plan, and stops, so it can be used in scripts.
+- `init` doesn't start engines. Strata's start command needs a preset name EZBox can't know. If no engine runs, `init` says so and can still write the config.
+- An engine named with `--engine` that isn't running is written to the config anyway, and the plan says the box won't start yet.
+- For each model, `init` asks whether it is a reasoning model, because engines don't say and a reasoning model's answers can be cut off without it (`--reasoning` answers yes for all).
+- Not yet: read-only folders (refused until masking is built), the disk space check (its threshold waits for the image builder), building images (until `ezbx build` exists, the plan says which are missing and how to build them), `ezbx.lock`, and `--here`.
+- On a box that is already up, `init` writes a changed config but doesn't restart the box. It says to run `ezbx down`, then `ezbx up`.
+
 ## Principles
 
 1. **Show the plan before changing anything.** Every run ends with a review screen listing exactly what will be created, downloaded and changed. Nothing happens until you confirm.

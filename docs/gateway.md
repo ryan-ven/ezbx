@@ -148,7 +148,7 @@ On the host:
 
 From inside, in a throwaway container started from the gateway's own image (which holds `ezbx`), attached only to the inside network, with the box's restrictions:
 
-7. The model list comes back through the gateway and names the expected engine. A one-token completion succeeds and names the model.
+7. The model list comes back through the gateway and names the expected engine. A one-token completion succeeds and names the model. The completion may take up to 2 minutes, and taking longer is a warning rather than a failure: the model list already proved the route, and a model that was just loaded, or that shares the GPU with a game, can be slow to answer the first time (seen live, where the 30-second limit it had before failed a freshly loaded model).
 8. A full port scan of the gateway finds only the model and proxy ports.
 9. If the inside network's bridge has an address, a full port scan of it finds nothing.
 10. No direct route to public addresses, the gateway's outside address, the outside network's bridge, Docker Desktop's host address, or this computer's own addresses. Outside names and Docker Desktop's host names don't resolve.

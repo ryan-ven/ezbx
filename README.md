@@ -4,7 +4,7 @@
 
 EZBox is a planned one-click setup for running AI coding and agent tools inside a sandboxed container, while the model itself keeps running on your own machine.
 
-> **Status: early development. Most of this is still design.** The sections below describe what I intend to build. What works today: `ezbx up` and `ezbx down`, which start and remove a box described in `ezbx.toml` (see [ezbx.toml.example](ezbx.toml.example)), `ezbx shell`, which opens a terminal or starts a harness in the box, `ezbx net`, which shows and switches the network and approves hosts, `ezbx engine use`, which points a running box at an engine, `ezbx engine detect`, which finds inference engines running on your computer, `ezbx gateway serve`, which runs the gateway (the model route, the egress proxy with the network switch, and the admin API), `ezbx harness render`, which writes a harness's config from the engine's model list, and `ezbx doctor`, which checks a running box and explains any fix. The images are still built by hand from `docker/`, and there is no `ezbx init` yet, so the config file is written by hand. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
+> **Status: early development. Most of this is still design.** The sections below describe what I intend to build. What works today: `ezbx init`, the guided setup, `ezbx up` and `ezbx down`, which start and remove a box described in `ezbx.toml` (see [ezbx.toml.example](ezbx.toml.example)), `ezbx shell`, which opens a terminal or starts a harness in the box, `ezbx net`, which shows and switches the network and approves hosts, `ezbx engine use`, which points a running box at an engine, `ezbx engine detect`, which finds inference engines running on your computer, `ezbx gateway serve`, which runs the gateway (the model route, the egress proxy with the network switch, and the admin API), `ezbx harness render`, which writes a harness's config from the engine's model list, and `ezbx doctor`, which checks a running box and explains any fix. The images are still built by hand from `docker/`. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
 
 ```text
 go run ./cmd/ezbx engine detect
@@ -32,7 +32,7 @@ The goal: set up Pi with a local model on Strata, from nothing, using only `ezbx
 
 | Command | What it does | Status |
 |---|---|---|
-| `ezbx init` | Finds the engine, asks the questions, writes `ezbx.toml`, shows the plan first | not built |
+| `ezbx init` | Finds the engine, asks the questions, writes `ezbx.toml`, shows the plan first | done |
 | `ezbx build` | Builds the images from pinned versions and records them in `ezbx.lock` | not built (images are built by hand) |
 | `ezbx up` / `ezbx down` | Start and remove the box | done |
 | `ezbx shell` / `ezbx shell pi` | A terminal in the box, or Pi | done; Pi's full-screen mode not yet checked |
