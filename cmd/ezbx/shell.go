@@ -23,12 +23,13 @@ func runShell(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	cfgFlag := fs.String("config", "", "config file, used to find the box")
 	boxFlag := fs.String("box", "", "box name; default the one in the config, else main")
+	noSnap := fs.Bool("no-snapshot", false, "don't snapshot the workspace first")
 	words, rest, err := parseInterleaved(fs, args)
 	if err != nil {
 		return 2
 	}
 	if len(words) > 1 {
-		fmt.Fprintln(stderr, "Usage: ezbx shell [HARNESS] [--box NAME] [-- HARNESS ARGS...]")
+		fmt.Fprintln(stderr, "Usage: ezbx shell [HARNESS] [--box NAME] [--no-snapshot] [-- HARNESS ARGS...]")
 		return 2
 	}
 	t, err := resolveBox(*cfgFlag, *boxFlag)
@@ -53,6 +54,18 @@ func runShell(args []string, stdout, stderr io.Writer) int {
 	}
 	if !running {
 		return report(stderr, box.ErrNotUp{Box: t.name, What: "the box container isn't running"})
+	}
+
+	// An undo point before every session. If it fails, the session doesn't
+	// start, because the agent's changes couldn't be undone.
+	if !*noSnap {
+		sb, err := openSnapshots(t)
+		if err == nil {
+			err = takeAuto(sb, stderr)
+		}
+		if err != nil {
+			return report(stderr, fmt.Errorf("the snapshot before the session failed, so the session wasn't started: %w\nTo start without one: ezbx shell --no-snapshot", err))
+		}
 	}
 
 	// The session is interactive: docker takes over this terminal.

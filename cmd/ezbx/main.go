@@ -32,7 +32,10 @@ Usage:
   ezbx build [--config FILE] [--prune [--yes]]
   ezbx up [--config FILE] [--no-doctor]
   ezbx down [--box NAME] [--config FILE]
-  ezbx shell [HARNESS] [--box NAME] [-- HARNESS ARGS...]
+  ezbx shell [HARNESS] [--box NAME] [--no-snapshot] [-- HARNESS ARGS...]
+  ezbx snapshot [-m NOTE] | ezbx snapshot list | ezbx snapshot remove ID [--yes]
+  ezbx review [ID] [--diff]
+  ezbx rewind [ID] [--yes]
   ezbx net [off|allow|on] [--box NAME]
   ezbx net allow|remove HOST... [--box NAME]
   ezbx engine detect [--json] [--timeout 500ms] [--url ADDRESS]...
@@ -64,6 +67,14 @@ Commands:
                   the state folder and the agent's home volume are kept.
   shell           Open bash in the box's workspace, or start a harness
                   there (ezbx shell pi), as the unprivileged agent user.
+  snapshot        Take an undo point of the workspace by hand (kept until
+                  removed); list shows them all. ezbx shell takes one
+                  before every session (the last 20 are kept).
+  review          Show what changed in the workspace since a snapshot
+                  (the newest by default); --diff shows the lines.
+  rewind          Put the workspace back as it was in a snapshot (the
+                  newest by default). Takes a snapshot first, so a rewind
+                  can be undone too.
   net             Show the network mode, allowed and recently blocked
                   hosts. net off|allow|on changes the mode until the next
                   up. net allow HOST approves a host and saves it, so it
@@ -111,6 +122,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(args) >= 1 && args[0] == "shell" {
 		return runShell(args[1:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "snapshot" {
+		return runSnapshot(args[1:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "rewind" {
+		return runRewind(args[1:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "review" {
+		return runReview(args[1:], stdout, stderr)
 	}
 	if len(args) >= 1 && args[0] == "build" {
 		return runBuild(args[1:], stdout, stderr)

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -37,6 +38,15 @@ type Box struct {
 	Harnesses []string   `toml:"harnesses"`
 	Tools     []string   `toml:"tools"` // tool ids and "pack:" names; nil when the key is left out
 	ReadOnly  []ReadOnly `toml:"readonly"`
+	Snapshots Snapshots  `toml:"snapshots"`
+}
+
+// Snapshots says what snapshots of the workspace leave out and how many
+// automatic ones are kept. Empty values mean the defaults.
+type Snapshots struct {
+	Skip    []string `toml:"skip"`     // names to leave out, at any depth; nil means the defaults
+	MaxFile string   `toml:"max_file"` // larger files are left out, such as 100m
+	Keep    int      `toml:"keep"`     // automatic snapshots kept
 }
 
 // ReadOnly is a folder the agent may read but not change. Not built yet.
@@ -258,6 +268,21 @@ func (b *Box) check(name string) error {
 		if !toolRE.MatchString(t) {
 			return fmt.Errorf(`%stools %q: use a tool id such as "ffmpeg" or a pack such as "pack:coding"`, p, t)
 		}
+	}
+	for _, s := range b.Snapshots.Skip {
+		if s == "" || strings.ContainsAny(s, `/\`) || s == "." || s == ".." {
+			return fmt.Errorf("%ssnapshots.skip %q: use a folder or file name such as node_modules or *.log, not a path", p, s)
+		}
+		if _, err := path.Match(s, ""); err != nil {
+			return fmt.Errorf("%ssnapshots.skip %q: %v", p, s, err)
+		}
+	}
+	b.Snapshots.MaxFile = strings.ToLower(b.Snapshots.MaxFile)
+	if b.Snapshots.MaxFile != "" && !MemoryValue(b.Snapshots.MaxFile) {
+		return fmt.Errorf("%ssnapshots.max_file %q: use a whole number and k, m or g, such as 100m", p, b.Snapshots.MaxFile)
+	}
+	if b.Snapshots.Keep < 0 {
+		return errors.New(p + "snapshots.keep can't be negative")
 	}
 	if len(b.ReadOnly) > 0 {
 		return errors.New(p + "readonly folders are not supported yet, because hiding secret files in them isn't built. Remove the readonly entries for now")

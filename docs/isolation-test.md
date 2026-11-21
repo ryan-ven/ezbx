@@ -135,6 +135,18 @@ From a scratch `EZBX_HOME`, with the fake engine, a box named `vt` with all thre
 
 Not covered: `ezbx init` building images live (covered by unit tests; a live run would have probed the engines on this computer, and the real engine was in use).
 
+### Snapshots, `review` and `rewind` (same day)
+
+From a scratch `EZBX_HOME`, with the fake engine, a box named `vt` and a workspace holding a project that is a git repository itself, with a `node_modules` folder.
+
+- `ezbx shell` took a snapshot before the session: 29 files (the project's `.git` folder included), `node_modules` left out. In the session, the agent changed a file, deleted one, made a new folder and committed in the project's repository.
+- `ezbx review` listed the three changes and summed up git's own files in one line; `--diff` showed the changed lines.
+- `ezbx rewind` refused while another process ran in the box. With the box idle, it listed the changes, asked, took a safety snapshot and put the workspace back: the file and the deleted file returned, the new folder was gone, the agent's commit was undone (`git log` and `git fsck` clean), and `node_modules` was left as it was.
+- `ezbx rewind` to the safety snapshot undid the rewind, commit included.
+- A snapshot by hand with a note, `snapshot list` and `snapshot remove` worked. Four snapshots of about 28 KB took 14 KB of store. The box's only mounts were the workspace and its home volume.
+- With the store locked, `ezbx shell` refused to start the session and named `--no-snapshot`.
+- **Found and fixed:** `review` printed git's internal files one by one, burying the real changes; they are now summed up per project. Mutation checks found four weak tests (size-only change, the safety snapshot not checked on disk, a folder the target left out, the big-diff fallback), all fixed. The link protection is tested on Linux only, because Windows needs extra rights to make links.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.

@@ -22,6 +22,13 @@ tools     = ["pack:coding"]       # built into the box: packs (pack:coding, pack
                                   # pack:media) and single tools, such as "ffmpeg".
                                   # After a change: ezbx build, ezbx down, ezbx up
 
+# Snapshots of the workspace, taken before every ezbx shell (undo with
+# ezbx rewind). All optional; these are the defaults.
+# [box.main.snapshots]
+# skip     = ["node_modules", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".next", ".cache"]
+# max_file = "100m"               # larger files are left out
+# keep     = 20                   # automatic snapshots kept; ones taken by hand stay
+
 # Optional, NOT SUPPORTED YET: folders the agent may READ but never change.
 # EZBox refuses to start while these are set, until hiding secret files in
 # them is built.

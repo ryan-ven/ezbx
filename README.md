@@ -4,7 +4,7 @@
 
 EZBox is a planned one-click setup for running AI coding and agent tools inside a sandboxed container, while the model itself keeps running on your own machine.
 
-> **Status: early development.** One harness (Pi) works end to end on Windows with Docker Desktop: `ezbx init` sets it up from nothing, builds the images and starts the box, and `ezbx shell pi` opens it. Undo (snapshots), the admin shell and `reset`/`destroy` are not built yet; the checklist below shows where things stand. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
+> **Status: early development.** One harness (Pi) works end to end on Windows with Docker Desktop: `ezbx init` sets it up from nothing, builds the images and starts the box, and `ezbx shell pi` opens it, after taking a snapshot of the workspace that `ezbx rewind` can go back to. The admin shell and `reset`/`destroy` are not built yet; the checklist below shows where things stand. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
 
 ```text
 go install ./cmd/ezbx     from a clone; needs Go and Docker Desktop
@@ -12,7 +12,7 @@ ezbx init                 asks the questions, shows the plan, builds and starts 
 ezbx shell pi             opens Pi in the box
 ```
 
-Other commands: `ezbx up` and `ezbx down` start and remove the box described in `ezbx.toml` (see [ezbx.toml.example](ezbx.toml.example)), `ezbx build` builds the images, `ezbx net` shows and switches the network and approves hosts, `ezbx engine detect` and `ezbx engine use` find an engine and point the box at it, and `ezbx doctor` checks the whole setup and explains any fix.
+Other commands: `ezbx up` and `ezbx down` start and remove the box described in `ezbx.toml` (see [ezbx.toml.example](ezbx.toml.example)), `ezbx build` builds the images, `ezbx review` and `ezbx rewind` show and undo what changed in the workspace since a snapshot, `ezbx net` shows and switches the network and approves hosts, `ezbx engine detect` and `ezbx engine use` find an engine and point the box at it, and `ezbx doctor` checks the whole setup and explains any fix.
 
 ## The idea
 
@@ -41,7 +41,7 @@ The goal: set up Pi with a local model on Strata, from nothing, using only `ezbx
 | `ezbx shell` / `ezbx shell pi` | A terminal in the box, or Pi | done |
 | `ezbx net off\|allow\|on`, `ezbx net allow HOST` | The network switch and approvals | done |
 | `ezbx engine use` | Point a running box at an engine, for example after it moves to a new port | done |
-| `ezbx snapshot` / `rewind` / `review` | Undo an agent's changes to the workspace | not built |
+| `ezbx snapshot` / `rewind` / `review` | Undo an agent's changes to the workspace; `ezbx shell` takes a snapshot first ([docs/snapshots.md](docs/snapshots.md)) | done |
 | `ezbx admin shell` | A root shell for the human, in a separate container | not built |
 | `ezbx reset` / `destroy` | Start again, or remove everything EZBox made | not built |
 | `ezbx doctor` | Check the whole setup and explain fixes | done |

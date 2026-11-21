@@ -109,7 +109,7 @@ Each harness is a folder, `harnesses/<id>/`, with a `manifest.json` and an insta
 
 ## 8. Snapshots and rewind
 
-Before each session, EZBox snapshots the workspace into a repository that lives outside the box's mounts, so the agent can't edit its own history. `ezbx rewind` restores the last snapshot. `ezbx review` shows what changed since it.
+Before each session, EZBox snapshots the workspace into a store in the box's state folder, outside the box's mounts, so the agent can't edit its own history. `ezbx rewind` restores a snapshot (the newest by default) after taking one of the current state, so a rewind can be undone too. `ezbx review` shows what changed since a snapshot. Built; see [snapshots.md](snapshots.md).
 
 ## 9. Command line
 
@@ -175,6 +175,7 @@ It does not fully protect against:
 | 12 | Where the image build files come from | Carried inside the `ezbx` program: the Dockerfiles, harness install files, the tool catalogue and the gateway's Go source. `ezbx build` needs no copy of the repository. See [build.md](build.md). |
 | 13 | `ezbx.lock` and what `up` accepts | `ezbx.lock` is committed and generated from the files: base image digests, harness versions and lockfile hashes, tools. What was built on a computer goes in `images.json` next to `ezbx.toml`. `up` refuses images not built from the current inputs. |
 | 14 | Image names and old images | Each image is named after a hash of its inputs (`ezbx-box:<12 hex digits>`). Rebuilds keep the old images; `ezbx build --prune` removes older ones after asking, keeping the current images and the ones they replaced. |
+| 15 | Snapshots | A store of EZBox's own in the state folder (content kept once, compressed, by hash; a list per snapshot), not git, which keeps a nested git repository only as a pointer. Taken at every `ezbx shell` and by hand. Rebuildable folders and files over 100 MB left out; the last 20 automatic ones kept. `rewind` snapshots first, then matches the workspace exactly, and refuses while a session runs. See [snapshots.md](snapshots.md). |
 
 ## 14. Open questions
 

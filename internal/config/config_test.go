@@ -121,6 +121,13 @@ func TestRefused(t *testing.T) {
 		"bad tool":         {strings.Replace(base, "workspace", "tools = ['FFmpeg']\nworkspace", 1), "tools \"FFmpeg\""},
 		"bad pack prefix":  {strings.Replace(base, "workspace", "tools = ['packs:coding']\nworkspace", 1), "tools \"packs:coding\""},
 		"tool with path":   {strings.Replace(base, "workspace", "tools = ['../x']\nworkspace", 1), "tools \"../x\""},
+		"skip a path":      {base + "[box.main.snapshots]\nskip = ['a/node_modules']\n", "not a path"},
+		"skip backslash":   {base + "[box.main.snapshots]\nskip = ['a\\\\b']\n", "not a path"},
+		"skip dot-dot":     {base + "[box.main.snapshots]\nskip = ['..']\n", "not a path"},
+		"skip bad pattern": {base + "[box.main.snapshots]\nskip = ['[x']\n", "syntax error"},
+		"bad max_file":     {base + "[box.main.snapshots]\nmax_file = 'huge'\n", "max_file"},
+		"negative keep":    {base + "[box.main.snapshots]\nkeep = -1\n", "keep can't be negative"},
+		"snapshot typo":    {base + "[box.main.snapshots]\nkeeep = 3\n", "unknown setting: box.main.snapshots.keeep"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
