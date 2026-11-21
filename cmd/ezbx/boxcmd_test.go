@@ -42,7 +42,7 @@ func TestShellArgs(t *testing.T) {
 		t.Errorf("%v %v", got, err)
 	}
 	got, err = shellArgs(tg, "pi", []string{"-p", "hi"}, false)
-	if err != nil || strings.Join(got, " ") != "exec -i -w /workspace -e PI_SKIP_VERSION_CHECK=1 ezbx-t-box pi -p hi" {
+	if err != nil || strings.Join(got, " ") != "exec -i -w /workspace -e PI_OFFLINE=1 -e PI_SKIP_VERSION_CHECK=1 ezbx-t-box pi -p hi" {
 		t.Errorf("%v %v", got, err)
 	}
 	for _, a := range got {

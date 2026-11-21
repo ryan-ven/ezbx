@@ -103,7 +103,7 @@ A box made by `ezbx up` in front of Strata, network `off` in `ezbx.toml`. The do
 - `ezbx shell` ran as the `agent` user in `/workspace`. `ezbx shell pi -- -p ...` answered through Strata in about 1.5 seconds and wrote a file into the workspace with its write tool.
 - **Found and fixed:** the first `ezbx shell pi` failed with "cannot attach stdin to a TTY-enabled container", because Windows reports the `NUL` device as a character device, which looked like a terminal. The check now asks the Windows console itself (and rules out `/dev/null` elsewhere).
 
-Not covered: Pi's full-screen interactive mode, which needs a person at a real terminal.
+Not covered here: Pi's full-screen interactive mode, which needs a person at a real terminal (see the next sections).
 
 ### `ezbx init` (same day)
 
@@ -114,6 +114,12 @@ From an empty `EZBX_HOME`, with Strata running, answers typed as a person would.
 - **Found and fixed:** the doctor at the end failed its one-token completion, because the model had just been loaded and shared the GPU with a game, and the check waited only 30 seconds. Run again a minute later, it passed 21 of 21. The check now waits up to 2 minutes and reports a timeout as a warning, since the model list had already come back through the gateway.
 - `init --yes` again: "Nothing to change". `init --yes --network allow` showed `network off -> allow`, kept the old file as `ezbx.toml.previous`, and didn't restart the running box. Pi answered through the box `init` made in about 3 seconds.
 - Answering "n" at the plan changed nothing, and input that ended early stopped with a clear message; neither created a file.
+
+### First run by hand (same day)
+
+I built `ezbx` with `go install ./cmd/ezbx` and ran `ezbx init` and `ezbx shell pi` myself in PowerShell, with my real config folder and Strata. Setup, the box and Pi's full-screen interface all worked.
+
+- **Found:** Pi printed "fd not found. Downloading..." and the same for ripgrep, then a 403 from the proxy. Pi looks for both tools and, if they are missing, downloads the latest release from GitHub. The box's network was `off`, so the gateway refused, as it should. Fixed: the image now installs Debian's `fd-find` and `ripgrep` (Pi also accepts the name `fdfind`), and `PI_OFFLINE=1` turns off Pi's startup network calls. In a container with no network, Pi's own tool finder then returned `fdfind` and `rg` without trying a download.
 
 ## Limits of this result
 

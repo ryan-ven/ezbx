@@ -20,8 +20,11 @@ COPY --chown=node:node harnesses/pi/package.json harnesses/pi/package-lock.json 
 RUN sh install.sh
 
 FROM base
+# fd (Debian names it fdfind) and ripgrep are Pi's file search tools. Without
+# them Pi tries to download the latest release from GitHub when it starts,
+# which the box's network blocks and which would bypass pinning anyway.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates git \
+ && apt-get install -y --no-install-recommends ca-certificates git fd-find ripgrep \
  && rm -rf /var/lib/apt/lists/*
 
 # The agent user replaces the base image's "node" user at the same id. No
@@ -36,9 +39,12 @@ RUN userdel -r node \
 # Harness files belong to root, so the agent can run Pi but not change it.
 COPY --from=pi --chown=root:root /build/pi /opt/ezbx/harnesses/pi
 RUN ln -s /opt/ezbx/harnesses/pi/node_modules/.bin/pi /usr/local/bin/pi \
- && pi --version
+ && pi --version && fdfind --version && rg --version
 
-ENV PI_SKIP_VERSION_CHECK=1
+# PI_OFFLINE turns off Pi's startup network calls: tool downloads, version and
+# package update checks, its online model catalogue and install telemetry.
+# Model requests to the gateway are not affected.
+ENV PI_SKIP_VERSION_CHECK=1 PI_OFFLINE=1
 USER agent
 WORKDIR /workspace
 LABEL ezbx.managed="true"

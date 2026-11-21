@@ -35,7 +35,7 @@ The goal: set up Pi with a local model on Strata, from nothing, using only `ezbx
 | `ezbx init` | Finds the engine, asks the questions, writes `ezbx.toml`, shows the plan first | done |
 | `ezbx build` | Builds the images from pinned versions and records them in `ezbx.lock` | not built (images are built by hand) |
 | `ezbx up` / `ezbx down` | Start and remove the box | done |
-| `ezbx shell` / `ezbx shell pi` | A terminal in the box, or Pi | done; Pi's full-screen mode not yet checked |
+| `ezbx shell` / `ezbx shell pi` | A terminal in the box, or Pi | done |
 | `ezbx net off\|allow\|on`, `ezbx net allow HOST` | The network switch and approvals | done |
 | `ezbx engine use` | Point a running box at an engine, for example after it moves to a new port | done |
 | `ezbx snapshot` / `rewind` / `review` | Undo an agent's changes to the workspace | not built |

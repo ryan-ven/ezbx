@@ -16,6 +16,7 @@
   "runtime": "node",
 
   "env": {
+    "PI_OFFLINE": "1",
     "PI_SKIP_VERSION_CHECK": "1"
   },
 
@@ -84,6 +85,6 @@
     "status": "verified",
     "observedOn": "2026-11-20",
     "reverify": false,
-    "notes": "Installed from the lockfile with install scripts off, in the first EZBox box image. On the isolated network, through the gateway, pi -p answered with a fake engine and with a real local model on Strata, and used its read and write tools in /workspace. A reasoning model needs reasoning set to true and room for the answer in maxTokens. Not yet checked: the interactive interface."
+    "notes": "Installed from the lockfile with install scripts off, in the first EZBox box image. On the isolated network, through the gateway, pi -p answered with a fake engine and with a real local model on Strata, and used its read and write tools in /workspace. A reasoning model needs reasoning set to true and room for the answer in maxTokens. The full-screen interface worked through ezbx shell pi in PowerShell. Pi looks for fd (or fdfind) and rg and downloads the latest release from GitHub if they are missing, so the image installs Debian's fd-find and ripgrep, and PI_OFFLINE=1 turns off its startup network calls (tool downloads, update checks, its online model catalogue, install telemetry)."
   }
 }
