@@ -220,10 +220,14 @@ func TestGatherTyped(t *testing.T) {
 	if r := a.Models["fake"].Reasoning; r == nil || !*r {
 		t.Error("reasoning should be set")
 	}
-	for _, want := range []string{"Answer y or n.", "home folder", "api.example.com", `unknown tool pack "nope"`, `"wip" isn't verified`, "Always included for the harnesses: fd"} {
+	for _, want := range []string{"Answer y or n.", "home folder", "api.example.com", `unknown tool pack "nope"`, `"wip" isn't verified`, "Single tools: jq, wip\n"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("missing %q in:\n%s", want, out.String())
 		}
+	}
+	// fd is in every box through Pi, so it isn't offered as a single tool.
+	if strings.Contains(out.String(), "Single tools: fd") {
+		t.Error(out.String())
 	}
 }
 

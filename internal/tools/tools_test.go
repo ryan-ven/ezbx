@@ -115,6 +115,14 @@ func TestResolve(t *testing.T) {
 	if got := strings.Join(s.Links, " "); got != "alias=cmd-a" {
 		t.Errorf("links %q", got)
 	}
+	// b came from the pack too, but a harness needs it, so it isn't among
+	// the box's own choices.
+	if got := strings.Join(s.Chosen, ","); got != "a" {
+		t.Errorf("chosen %q", got)
+	}
+	if s, _ := c.Resolve([]string{"b"}, nil); strings.Join(s.Chosen, ",") != "b" {
+		t.Errorf("chosen without harness tools: %q", s.Chosen)
+	}
 	for _, tc := range []struct {
 		chosen, needed []string
 		want           string

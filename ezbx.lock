@@ -83,7 +83,7 @@ commands = ["unzip"]
 verified = "verified"
 
 [packs.coding]
-tools = ["curl", "fd", "jq", "less", "make", "python3", "ripgrep", "unzip"]
+tools = ["curl", "jq", "less", "make", "python3", "unzip"]
 
 [packs.media]
 tools = ["ffmpeg", "imagemagick"]

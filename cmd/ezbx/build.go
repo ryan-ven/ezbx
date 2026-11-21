@@ -135,7 +135,7 @@ func buildImages(ctx context.Context, dirs paths.Dirs, stdout io.Writer, specs .
 		}
 		fmt.Fprintf(stdout, "built %s\n", s.Tag())
 		if s.Kind == "box" {
-			fmt.Fprintf(stdout, "  tools: %s\n", toolsLine(s.Tools.IDs()))
+			fmt.Fprintf(stdout, "  tools: %s\n", toolsLine(s.Tools.Chosen))
 		}
 	}
 	if err := rec.Write(file); err != nil {

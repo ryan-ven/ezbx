@@ -24,7 +24,7 @@ Tool packs (also decided first):
 
 - One small data file per tool, in `catalog/tools/<id>.json`, and one per pack, in `catalog/packs/<id>.json`. A pack is a named list of tools.
 - Tools are Debian packages, pinned as described below. A direct download with a checked hash will be added only for a tool Debian lacks or has too old.
-- Starting packs: `coding` (curl, fd, jq, less, make, python3, ripgrep, unzip), `web` (Chromium) and `media` (FFmpeg, ImageMagick). Each tool is verified in a real build before it ships.
+- Starting packs: `coding` (curl, jq, less, make, python3, unzip), `web` (Chromium) and `media` (FFmpeg, ImageMagick). Each tool is verified in a real build before it ships. fd and ripgrep are in every box, because Pi needs them, so no pack lists them and `init` doesn't offer them.
 - You choose in `ezbx.toml`, with packs and single tools mixed: `tools = ["pack:coding", "ffmpeg"]`. `ezbx init` asks, with `pack:coding` as the default for a new config.
 
 ## How the images are named

@@ -343,14 +343,20 @@ func askTools(f Facts, o Options, a *Answers, p *Prompter) error {
 		pk := f.Catalog.Packs[id]
 		fmt.Fprintf(p.Out, "  %-14s %s\n  %-14s (%s)\n", tools.PackPrefix+id, pk.Description, "", strings.Join(pk.Tools, ", "))
 	}
-	fmt.Fprintf(p.Out, "  Single tools: %s\n", strings.Join(f.Catalog.ToolIDs(), ", "))
-	var needed []string
+	// Tools a harness needs are in every box anyway, so they aren't offered.
+	needed := map[string]bool{}
 	for _, m := range f.Harnesses {
-		needed = append(needed, m.Tools...)
+		for _, t := range m.Tools {
+			needed[t] = true
+		}
 	}
-	if len(needed) > 0 {
-		fmt.Fprintf(p.Out, "  Always included for the harnesses: %s\n", strings.Join(needed, ", "))
+	var single []string
+	for _, id := range f.Catalog.ToolIDs() {
+		if !needed[id] {
+			single = append(single, id)
+		}
 	}
+	fmt.Fprintf(p.Out, "  Single tools: %s\n", strings.Join(single, ", "))
 
 	// A new config starts with the coding pack. An existing one keeps what it
 	// has, so taking every default changes nothing (a config from before

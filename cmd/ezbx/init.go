@@ -122,7 +122,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	}
 	pl := setup.Plan{
 		Result: res, ConfigFile: cfgFile, StateDir: dirs.Box(res.Answers.Box),
-		Images: imagesPresent(ctx, gw, bx), Tools: bx.Tools.IDs(), Harnesses: facts.Harnesses, NoStart: *noStart,
+		Images: imagesPresent(ctx, gw, bx), Tools: bx.Tools.Chosen, Harnesses: facts.Harnesses, NoStart: *noStart,
 	}
 	if existing != nil {
 		old := setup.FromConfig(existing)

@@ -15,7 +15,7 @@ type Plan struct {
 	ConfigFile string
 	StateDir   string
 	Images     []Image  // the gateway and box images this config needs
-	Tools      []string // the tool ids the box image gets, with the harnesses' own
+	Tools      []string // the tool ids chosen for the box (the harnesses' own are always added)
 	Harnesses  []harness.Manifest
 	NoStart    bool // --no-start
 	BoxUp      bool // the box's containers exist already

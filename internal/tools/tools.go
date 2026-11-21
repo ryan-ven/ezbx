@@ -179,6 +179,7 @@ type Selection struct {
 	Debian   []string // sorted, no repeats
 	Commands []string // sorted, no repeats
 	Links    []string // "name=target", sorted
+	Chosen   []string // ids from the box's own choice, without the harnesses' tools, sorted
 }
 
 // IDs lists the chosen tools' ids.
@@ -214,14 +215,23 @@ func (c *Catalog) Resolve(chosen, needed []string) (Selection, error) {
 		}
 		ids[item] = true
 	}
+	var s Selection
+	isNeeded := map[string]bool{}
 	for _, id := range needed {
 		if _, ok := c.Tools[id]; !ok {
 			return Selection{}, fmt.Errorf("a harness needs the tool %q, which isn't in the catalogue", id)
 		}
+		isNeeded[id] = true
+	}
+	for _, id := range sortedKeys(ids) {
+		if !isNeeded[id] {
+			s.Chosen = append(s.Chosen, id)
+		}
+	}
+	for id := range isNeeded {
 		ids[id] = true
 	}
 
-	var s Selection
 	debs, cmds, links := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, id := range sortedKeys(ids) {
 		t := c.Tools[id]
