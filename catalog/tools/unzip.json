@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "unzip",
+  "name": "unzip",
+  "description": "Unpacks zip files.",
+  "debian": [
+    "unzip"
+  ],
+  "commands": [
+    "unzip"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: unzip 6.0-28+deb12u1. Unpacked a zip file made with Python."
+  }
+}

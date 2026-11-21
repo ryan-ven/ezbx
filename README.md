@@ -4,12 +4,15 @@
 
 EZBox is a planned one-click setup for running AI coding and agent tools inside a sandboxed container, while the model itself keeps running on your own machine.
 
-> **Status: early development. Most of this is still design.** The sections below describe what I intend to build. What works today: `ezbx init`, the guided setup, `ezbx up` and `ezbx down`, which start and remove a box described in `ezbx.toml` (see [ezbx.toml.example](ezbx.toml.example)), `ezbx shell`, which opens a terminal or starts a harness in the box, `ezbx net`, which shows and switches the network and approves hosts, `ezbx engine use`, which points a running box at an engine, `ezbx engine detect`, which finds inference engines running on your computer, `ezbx gateway serve`, which runs the gateway (the model route, the egress proxy with the network switch, and the admin API), `ezbx harness render`, which writes a harness's config from the engine's model list, and `ezbx doctor`, which checks a running box and explains any fix. The images are still built by hand from `docker/`. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
+> **Status: early development.** One harness (Pi) works end to end on Windows with Docker Desktop: `ezbx init` sets it up from nothing, builds the images and starts the box, and `ezbx shell pi` opens it. Undo (snapshots), the admin shell and `reset`/`destroy` are not built yet; the checklist below shows where things stand. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
 
 ```text
-go run ./cmd/ezbx engine detect
-go run ./cmd/ezbx gateway serve
+go install ./cmd/ezbx     from a clone; needs Go and Docker Desktop
+ezbx init                 asks the questions, shows the plan, builds and starts the box
+ezbx shell pi             opens Pi in the box
 ```
+
+Other commands: `ezbx up` and `ezbx down` start and remove the box described in `ezbx.toml` (see [ezbx.toml.example](ezbx.toml.example)), `ezbx build` builds the images, `ezbx net` shows and switches the network and approves hosts, `ezbx engine detect` and `ezbx engine use` find an engine and point the box at it, and `ezbx doctor` checks the whole setup and explains any fix.
 
 ## The idea
 
@@ -33,7 +36,7 @@ The goal: set up Pi with a local model on Strata, from nothing, using only `ezbx
 | Command | What it does | Status |
 |---|---|---|
 | `ezbx init` | Finds the engine, asks the questions, writes `ezbx.toml`, shows the plan first | done |
-| `ezbx build` | Builds the images from pinned versions and records them in `ezbx.lock` | not built (images are built by hand) |
+| `ezbx build` | Builds the images from pinned versions listed in `ezbx.lock`, with the tool packs you chose ([docs/build.md](docs/build.md)) | done |
 | `ezbx up` / `ezbx down` | Start and remove the box | done |
 | `ezbx shell` / `ezbx shell pi` | A terminal in the box, or Pi | done |
 | `ezbx net off\|allow\|on`, `ezbx net allow HOST` | The network switch and approvals | done |

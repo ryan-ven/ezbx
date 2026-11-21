@@ -29,6 +29,8 @@ func testPlan(t *testing.T) Plan {
 			{Path: ".pi/agent/models.json", Mode: 0o600, Data: []byte(`{"m":1}`)},
 			{Path: ".pi/agent/settings.json", Mode: 0o600, Data: []byte(`{"s":1}`)},
 		},
+		GatewayImage: Image{Tag: "ezbx-gateway:aaa", Inputs: "in-gw"},
+		BoxImage:     Image{Tag: "ezbx-box:bbb", Inputs: "in-box"},
 	}
 }
 
@@ -90,7 +92,7 @@ func TestGatewayArgs(t *testing.T) {
 		{"-v", p.TokenFile() + ":/run/ezbx/admin-token:ro"},
 		{"-v", p.LogDir() + ":/var/log/ezbx"},
 		{"-e", "ENGINE_KEY"},
-		{GatewayImage, "gateway", "serve", "--listen", "0.0.0.0:8000"},
+		{"ezbx-gateway:aaa", "gateway", "serve", "--listen", "0.0.0.0:8000"},
 		{"--upstream", "http://host.docker.internal:18080"}, {"--engine", "strata"},
 		{"--upstream-host", "localhost:18080"}, {"--key-env", "ENGINE_KEY"},
 		{"--proxy", "0.0.0.0:3128"}, {"--network", "allow"}, {"--allow", "registry.npmjs.org"},
@@ -129,7 +131,7 @@ func TestBoxArgs(t *testing.T) {
 		{"--label", "ezbx.managed=true"},
 		{"-e", "HTTPS_PROXY=http://gateway:3128"}, {"-e", "http_proxy=http://gateway:3128"}, {"-e", "NO_PROXY=gateway"},
 		{"-v", p.Workspace + ":/workspace"}, {"-v", "ezbx-t-home:/home/agent"},
-		{BoxImage, "sleep", "infinity"},
+		{"ezbx-box:bbb", "sleep", "infinity"},
 	} {
 		if !has(a, w...) {
 			t.Errorf("box lacks %v, in\n%v", w, a)
@@ -301,13 +303,15 @@ type fakeDocker struct {
 	health     []string // answers to the health check, in turn
 	calls      [][]string
 	stdin      []byte
-	fail       string // fail any command whose words start with this
+	fail       string            // fail any command whose words start with this
+	images     map[string]string // image tag -> its ezbx.inputs label
 }
 
 func newFake() *fakeDocker {
 	return &fakeDocker{containers: map[string]bool{}, networks: map[string]bool{}, volumes: map[string]bool{},
 		insideJSON: `[{"Internal":true,"EnableIPv6":false,"Options":{"com.docker.network.bridge.gateway_mode_ipv4":"isolated","com.docker.network.enable_ipv6":"false"}}]`,
-		health:     []string{"true|starting", "true|healthy"}}
+		health:     []string{"true|starting", "true|healthy"},
+		images:     map[string]string{"ezbx-gateway:aaa": "in-gw", "ezbx-box:bbb": "in-box"}}
 }
 
 func list(m map[string]bool) []byte {
@@ -332,7 +336,11 @@ func (f *fakeDocker) run(_ context.Context, stdin []byte, args ...string) ([]byt
 	case line == "version --format {{.Server.Version}}":
 		return []byte("29.9.3\n"), nil
 	case strings.HasPrefix(line, "image inspect"):
-		return []byte("sha256:x"), nil
+		label, ok := f.images[args[len(args)-1]]
+		if !ok {
+			return nil, errors.New("Error: No such image")
+		}
+		return []byte(label + "\n"), nil
 	case strings.HasPrefix(line, "container ls"):
 		return list(f.containers), nil
 	case strings.HasPrefix(line, "network ls"):
@@ -514,6 +522,35 @@ func TestUpOldDocker(t *testing.T) {
 	}
 	if err := r.Up(context.Background(), testPlan(t)); err == nil || !strings.Contains(err.Error(), "28 or later") {
 		t.Fatal(err)
+	}
+}
+
+// Up needs both images, each built from these inputs, and creates nothing
+// otherwise.
+func TestUpChecksImages(t *testing.T) {
+	for name, tc := range map[string]struct {
+		tag, label, want string
+	}{
+		"gateway missing": {"ezbx-gateway:aaa", "", "ezbx-gateway:aaa isn't built yet. Run ezbx build"},
+		"box missing":     {"ezbx-box:bbb", "", "ezbx-box:bbb isn't built yet. Run ezbx build"},
+		"gateway other":   {"ezbx-gateway:aaa", "made-by-hand", "ezbx-gateway:aaa wasn't built by ezbx build"},
+		"box other":       {"ezbx-box:bbb", "", "ezbx-box:bbb wasn't built by ezbx build"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFake()
+			if strings.HasSuffix(name, "missing") {
+				delete(f.images, tc.tag)
+			} else {
+				f.images[tc.tag] = tc.label
+			}
+			err := runner(f).Up(context.Background(), testPlan(t))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %v, want %q", err, tc.want)
+			}
+			if len(f.networks)+len(f.volumes)+len(f.containers) != 0 {
+				t.Errorf("created something: %v %v %v", f.networks, f.volumes, f.containers)
+			}
+		})
 	}
 }
 

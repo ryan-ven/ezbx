@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "less",
+  "name": "less",
+  "description": "Pager for long output.",
+  "debian": [
+    "less"
+  ],
+  "commands": [
+    "less"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: less 590-2.1~deb12u2. Passed short input through with -F."
+  }
+}

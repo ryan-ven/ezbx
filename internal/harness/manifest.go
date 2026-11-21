@@ -23,6 +23,7 @@ type Manifest struct {
 	Install  Install           `json:"install"`
 	Binary   string            `json:"binary"`
 	Runtime  string            `json:"runtime"`
+	Tools    []string          `json:"tools"` // catalogue tools always built in with this harness
 	Env      map[string]string `json:"env"`
 	Config   []ConfigFile      `json:"config"`
 	Launch   Launch            `json:"launch"`
@@ -160,6 +161,13 @@ func (m Manifest) validate(folder string) error {
 	}
 	if m.Install.Script == "" {
 		return fmt.Errorf("install.script is required")
+	}
+	// Tool ids only; whether they exist is checked against the catalogue
+	// when an image is planned.
+	for _, t := range m.Tools {
+		if !idPattern.MatchString(t) {
+			return fmt.Errorf("tools: %q is not a tool id", t)
+		}
 	}
 
 	// No secrets in a manifest: the gateway injects keys.

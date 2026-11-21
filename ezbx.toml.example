@@ -18,6 +18,9 @@ workspace = '~/ezbx/workspace'    # the ONLY folder the agent can write to
 network   = "off"                 # off | allow | on
 # allow   = ["registry.npmjs.org"] # hosts allowed in "allow" mode, besides the harnesses' own
 harnesses = ["pi"]                # more are added once their install is verified
+tools     = ["pack:coding"]       # built into the box: packs (pack:coding, pack:web,
+                                  # pack:media) and single tools, such as "ffmpeg".
+                                  # After a change: ezbx build, ezbx down, ezbx up
 
 # Optional, NOT SUPPORTED YET: folders the agent may READ but never change.
 # EZBox refuses to start while these are set, until hiding secret files in

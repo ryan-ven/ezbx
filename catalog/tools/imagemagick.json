@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "imagemagick",
+  "name": "ImageMagick",
+  "description": "Converts and inspects images (version 6, so the command is convert, not magick).",
+  "debian": [
+    "imagemagick"
+  ],
+  "commands": [
+    "convert",
+    "identify"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: imagemagick 8:6.9.11.60+dfsg-1.6+deb12u15. convert made a PNG; identify read its size back."
+  }
+}

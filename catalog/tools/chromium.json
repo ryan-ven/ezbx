@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "chromium",
+  "name": "Chromium",
+  "description": "Web browser, for headless page checks and screenshots. Large.",
+  "debian": [
+    "chromium",
+    "fonts-liberation"
+  ],
+  "commands": [
+    "chromium"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: chromium 156.0.8078.79-1~deb12u1. Headless, it rendered a page (--dump-dom) and took a 200x100 screenshot. It needs --no-sandbox: its own sandbox needs kernel features the box drops on purpose (Debian's fix, chromium-sandbox, is a setuid helper, and the image removes setuid bits). The box is the sandbox."
+  }
+}

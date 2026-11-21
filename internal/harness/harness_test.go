@@ -57,6 +57,7 @@ func TestManifestValidation(t *testing.T) {
 		"bad kind":              {`"kind": "coding"`, `"kind": "toy"`},
 		"bad status":            {`"status": "unverified"`, `"status": "works"`},
 		"id not folder":         {`"id": "demo"`, `"id": "other"`},
+		"bad tool id":           {`"kind": "coding"`, `"kind": "coding", "tools": ["Rip Grep"]`},
 	}
 	for name, sub := range bad {
 		body := strings.Replace(goodManifest, sub[0], sub[1], 1)

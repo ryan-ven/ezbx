@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "curl",
+  "name": "curl",
+  "description": "Downloads from the web, through the gateway's proxy and network switch.",
+  "debian": [
+    "curl"
+  ],
+  "commands": [
+    "curl"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: curl 7.88.1-10+deb12u15. Runs; it uses the box's proxy settings, so the network switch applies to it."
+  }
+}

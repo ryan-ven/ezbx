@@ -13,6 +13,7 @@ A harness is an agent tool that runs inside the box. Each lives in `harnesses/<i
 | `install` | yes | How it is installed (see below). The version must be pinned. |
 | `binary` | yes | Command name that must exist after install. |
 | `runtime` | yes | `node`, `python` or `binary`. Tells the image builder which toolchain to include. |
+| `tools` | no | Tool ids from the catalogue (`catalog/tools/`) the harness always needs, built into the box with it whatever the config chooses. Pi needs `fd` and `ripgrep`. See [build.md](build.md). |
 | `env` | no | Environment variables set for this harness. Never secrets. |
 | `config` | no | Config files to generate (see below). |
 | `launch` | yes | Command and working directory used by `ezbx shell <id>`. |
@@ -30,7 +31,7 @@ A harness is an agent tool that runs inside the box. Each lives in `harnesses/<i
 - `type`: `npm`, `pip`, `binary` or `script`.
 - `lockfile`: required for `npm`. The lockfile in the harness folder.
 - `version` is always exact, such as `1.2.3` or `1.2.3-beta.1`. Ranges, tags and `latest` are refused when manifests are loaded, so a rebuild gives the same box.
-- Pinning the harness alone does not pin what it pulls in. An npm harness therefore ships a `package.json` and a `package-lock.json` in its folder. The lockfile pins every package it pulls in with an integrity hash, and the install uses `npm ci`, which refuses anything that doesn't match. Recording these hashes in `ezbx.lock` as well is not built yet.
+- Pinning the harness alone does not pin what it pulls in. An npm harness therefore ships a `package.json` and a `package-lock.json` in its folder. The lockfile pins every package it pulls in with an integrity hash, and the install uses `npm ci`, which refuses anything that doesn't match. `ezbx.lock` records the lockfile's own hash (see [build.md](build.md)).
 - `script` runs at image build time as an **unprivileged** user, in a separate build stage, and must fail loudly if the binary is missing. The result is copied into the image owned by root, so the agent can run the harness but not change it.
 - Package install scripts are off (`--ignore-scripts`). A harness that really needs one must say which and why in its install script.
 

@@ -9,7 +9,9 @@
 - `init` doesn't start engines. Strata's start command needs a preset name EZBox can't know. If no engine runs, `init` says so and can still write the config.
 - An engine named with `--engine` that isn't running is written to the config anyway, and the plan says the box won't start yet.
 - For each model, `init` asks whether it is a reasoning model, because engines don't say and a reasoning model's answers can be cut off without it (`--reasoning` answers yes for all).
-- Not yet: read-only folders (refused until masking is built), the disk space check (its threshold waits for the image builder), building images (until `ezbx build` exists, the plan says which are missing and how to build them), `ezbx.lock`, and `--here`.
+- After the harnesses, `init` asks which tool packs and tools go into the box image ([build.md](build.md)). A new config starts with `pack:coding`. An existing config keeps its `tools` setting, and one written before tools existed keeps none, so taking every default still changes nothing. `--tools pack:coding,ffmpeg` or `--tools none` answers it.
+- Images are built by `ezbx build` right before `ezbx up`, only if they aren't built yet; the plan says which. `ezbx.lock` is part of the repository, not written by `init` (see [build.md](build.md)). With `--no-start`, nothing is built.
+- Not yet: read-only folders (refused until masking is built), the disk space check, and `--here`.
 - On a box that is already up, `init` writes a changed config but doesn't restart the box. It says to run `ezbx down`, then `ezbx up`.
 
 ## Principles
@@ -123,7 +125,7 @@ If a step fails, `init` stops, explains in plain words, and leaves the earlier s
 |---|---|---|
 | Config | per-user config folder | `ezbx.toml` |
 | State | per-user state folder, one folder per box | logs, snapshots, admin token. Never inside the workspace and never mounted into the box. |
-| Lock | next to the config | `ezbx.lock`, pinned versions |
+| Built images | next to the config | `images.json`: what `ezbx build` built on this computer. The pinned inputs are in `ezbx.lock`, in the repository. |
 | Workspace | chosen in step 3 | the only writable mount |
 
 `--here` keeps config next to the current folder instead, which suits developers working from a clone of the repo.

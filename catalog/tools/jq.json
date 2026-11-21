@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "jq",
+  "name": "jq",
+  "description": "Reads and changes JSON on the command line.",
+  "debian": [
+    "jq"
+  ],
+  "commands": [
+    "jq"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: jq 1.6-2.1+deb12u3. Read a value from JSON."
+  }
+}

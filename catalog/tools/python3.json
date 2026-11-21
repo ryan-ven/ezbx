@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "python3",
+  "name": "Python",
+  "description": "Python 3 from Debian, without pip or venv.",
+  "debian": [
+    "python3"
+  ],
+  "commands": [
+    "python3"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: python3 3.11.2-1+b1. Ran code. pip and venv are not included."
+  }
+}

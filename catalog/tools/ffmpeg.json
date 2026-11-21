@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "ffmpeg",
+  "name": "FFmpeg",
+  "description": "Converts and inspects audio and video. Large.",
+  "debian": [
+    "ffmpeg"
+  ],
+  "commands": [
+    "ffmpeg",
+    "ffprobe"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: ffmpeg 7:5.1.9-0+deb12u1. Made a one-second test video; ffprobe read its size back."
+  }
+}

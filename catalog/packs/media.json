@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "id": "media",
+  "name": "Media",
+  "description": "Audio, video and image conversion. Large.",
+  "tools": [
+    "ffmpeg",
+    "imagemagick"
+  ]
+}

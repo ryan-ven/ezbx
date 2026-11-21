@@ -71,6 +71,13 @@ func TestDefaults(t *testing.T) {
 	if c.Engine.Use != "auto" || !c.LogOn() {
 		t.Errorf("engine %q, log %v", c.Engine.Use, c.LogOn())
 	}
+	if b.Tools != nil {
+		t.Errorf("no tools key means not set: %#v", b.Tools)
+	}
+	c, err = Parse("version = 1\n[box.main]\nworkspace = '/w'\nharnesses = [\"pi\"]\ntools = ['pack:coding', 'ffmpeg']\n")
+	if _, b = c.Only(); err != nil || strings.Join(b.Tools, ",") != "pack:coding,ffmpeg" {
+		t.Errorf("tools: %v %v", b.Tools, err)
+	}
 }
 
 // The shipped example must stay loadable, apart from the read-only folder,
@@ -111,6 +118,9 @@ func TestRefused(t *testing.T) {
 		"few pids":         {strings.Replace(base, "workspace", "pids = 10\nworkspace", 1), "pids"},
 		"bad toml":         {base + "memory = \n", "line"},
 		"negative context": {base + "[models.m]\ncontext = -1\n", "negative"},
+		"bad tool":         {strings.Replace(base, "workspace", "tools = ['FFmpeg']\nworkspace", 1), "tools \"FFmpeg\""},
+		"bad pack prefix":  {strings.Replace(base, "workspace", "tools = ['packs:coding']\nworkspace", 1), "tools \"packs:coding\""},
+		"tool with path":   {strings.Replace(base, "workspace", "tools = ['../x']\nworkspace", 1), "tools \"../x\""},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

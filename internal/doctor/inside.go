@@ -184,7 +184,7 @@ func RunInside(ctx context.Context, cfg InsideConfig) Report {
 	if len(opened) == 0 {
 		r.add(g, "proxy refuses local addresses", Pass, fmt.Sprintf("%d tried", len(cfg.Local)), "")
 	} else {
-		r.add(g, "proxy refuses local addresses", Fail, "opened: "+strings.Join(opened, ", "), "The gateway is too old or misconfigured. Rebuild it.")
+		r.add(g, "proxy refuses local addresses", Fail, "opened: "+strings.Join(opened, ", "), "The gateway is too old or misconfigured. Run ezbx build, then ezbx down and ezbx up.")
 	}
 	status := connectVia(cfg.Proxy, "example.com:443", cfg.Timeout*5)
 	switch cfg.Mode {

@@ -121,6 +121,20 @@ I built `ezbx` with `go install ./cmd/ezbx` and ran `ezbx init` and `ezbx shell 
 
 - **Found:** Pi printed "fd not found. Downloading..." and the same for ripgrep, then a 403 from the proxy. Pi looks for both tools and, if they are missing, downloads the latest release from GitHub. The box's network was `off`, so the gateway refused, as it should. Fixed: the image now installs Debian's `fd-find` and `ripgrep` (Pi also accepts the name `fdfind`), and `PI_OFFLINE=1` turns off Pi's startup network calls. In a container with no network, Pi's own tool finder then returned `fdfind` and `rg` without trying a download.
 
+### `ezbx build`, `ezbx.lock` and tool packs (next day)
+
+From a scratch `EZBX_HOME`, with the fake engine, a box named `vt` with all three tool packs.
+
+- `ezbx build` built both images from the files inside the program in about 3 minutes: `ezbx-gateway:<hash>` (13 MB) and `ezbx-box:<hash>` (2 GB with every pack; Chromium and FFmpeg are most of it). apt used the base image's own snapshot (`20261104T212339Z`), and `images.json` recorded each package's version, Pi 1.5.0 and both image IDs.
+- After a change to the carried files that doesn't touch the box's inputs (tool notes), `ezbx build` rebuilt only the gateway (12 seconds, from Docker's cache) and said the box was built already.
+- With only `pack:coding`, the box image is 726 MB (the hand-built image before tools was 671 MB).
+- In a container like the box (the agent user, every capability dropped, no-new-privileges, no network), every tool did real work: fd and rg found files, jq, python3, make and unzip ran, FFmpeg made a video and ffprobe read it, ImageMagick made and measured a PNG, and Chromium rendered a page and took a screenshot. Chromium needs `--no-sandbox`: its own sandbox needs kernel features the box drops on purpose.
+- `ezbx up` with the new images: about 10 seconds, the doctor passed 21 of 21. In the box, Pi answered through the gateway, `PI_OFFLINE` was set, Pi downloaded no tools of its own, and curl was refused by the proxy (`CONNECT tunnel failed, response 403`) with the network `off`.
+- `ezbx build --prune`, answered "n": it listed the older images, kept the ones containers use and said so, and removed nothing.
+- **Found and fixed:** the first prune offered images that containers were still using (Docker would have refused, but EZBox shouldn't offer them). Prune now leaves them out and names them.
+
+Not covered: `ezbx init` building images live (covered by unit tests; a live run would have probed the engines on this computer, and the real engine was in use).
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.

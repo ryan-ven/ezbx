@@ -125,6 +125,10 @@ func makePlan(ctx context.Context, cfg *config.Config, dirs paths.Dirs, stdout i
 	if err != nil {
 		return box.Plan{}, err
 	}
+	gw, bx, err := imageSpecs(b.Tools)
+	if err != nil {
+		return box.Plan{}, err
+	}
 	eng, override, err := chooseEngine(ctx, cfg)
 	if err != nil {
 		return box.Plan{}, err
@@ -148,6 +152,7 @@ func makePlan(ctx context.Context, cfg *config.Config, dirs paths.Dirs, stdout i
 		Network: b.Network, Allow: box.AllowList(b.Allow, chosen),
 		Memory: memoryLimit(ctx, b.Memory), CPUs: b.CPUsFlag(), PIDs: b.PIDs,
 		Harnesses: b.Harnesses, HomeFiles: files,
+		GatewayImage: planImage(gw), BoxImage: planImage(bx),
 	}, nil
 }
 

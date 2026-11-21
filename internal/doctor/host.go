@@ -191,7 +191,7 @@ func Run(ctx context.Context, cfg HostConfig) Report {
 	case !gw.State.Running:
 		r.add(gg, "running", Fail, "stopped", "Start it: docker start "+gwName)
 	case gw.State.Health == nil:
-		r.add(gg, "running", Warn, "running, with no healthcheck", "Rebuild the gateway image; it has a healthcheck built in.")
+		r.add(gg, "running", Warn, "running, with no healthcheck", "Run ezbx build, then ezbx down and ezbx up: the gateway image has a healthcheck built in.")
 	case gw.State.Health.Status != "healthy":
 		r.add(gg, "running", Warn, "health is "+gw.State.Health.Status, "Wait a few seconds; if it stays unhealthy, see docker logs "+gwName+".")
 	default:
@@ -347,7 +347,7 @@ func Run(ctx context.Context, cfg HostConfig) Report {
 		if err != nil {
 			detail = shortErr(err)
 		}
-		r.add("From inside the box", "inside checks", Fail, detail, "Rebuild the gateway image so it has the current ezbx.")
+		r.add("From inside the box", "inside checks", Fail, detail, "Run ezbx build, then ezbx down and ezbx up, so the gateway has the current ezbx.")
 		return r
 	}
 	r.Checks = append(r.Checks, inner.Checks...)

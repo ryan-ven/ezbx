@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,12 +15,14 @@ import (
 	"github.com/ryan-ven/ezbx/internal/detect"
 	"github.com/ryan-ven/ezbx/internal/harness"
 	"github.com/ryan-ven/ezbx/internal/paths"
+	"github.com/ryan-ven/ezbx/internal/tools"
 )
 
 // Facts are what the command found before asking anything.
 type Facts struct {
 	Engines      []detect.Engine    // running now
 	Harnesses    []harness.Manifest // verified ones, offered
+	Catalog      *tools.Catalog     // the tool catalogue
 	DockerMemory int64              // bytes; 0 if unknown
 	Home         string
 	Own          []string // EZBox's config and state folders
@@ -34,6 +37,7 @@ type Options struct {
 	KeyEnv    string
 	Reasoning bool // mark every model of the chosen engine as reasoning
 	Harnesses []string
+	Tools     []string // nil: ask; empty: none
 	Workspace string
 	Network   string
 	Memory    string
@@ -72,8 +76,11 @@ func Gather(f Facts, o Options, p *Prompter) (Result, error) {
 		}
 	}
 
-	// 2. Harnesses.
+	// 2. Harnesses, then the tools built in beside them.
 	if err := askHarnesses(f, o, &a, p); err != nil {
+		return res, err
+	}
+	if err := askTools(f, o, &a, p); err != nil {
 		return res, err
 	}
 
@@ -322,6 +329,70 @@ func askHarnesses(f Facts, o Options, a *Answers, p *Prompter) error {
 	return nil
 }
 
+// DefaultTools is offered when the config doesn't choose tools yet.
+var DefaultTools = []string{tools.PackPrefix + "coding"}
+
+// askTools asks which tool packs and single tools go into the box image.
+// "none" means only the tools the harnesses need themselves.
+func askTools(f Facts, o Options, a *Answers, p *Prompter) error {
+	if f.Catalog == nil {
+		return errors.New("internal error: no tool catalogue")
+	}
+	fmt.Fprintln(p.Out, "\nTools built into the box (the agent can't install programs itself)")
+	for _, id := range f.Catalog.PackIDs() {
+		pk := f.Catalog.Packs[id]
+		fmt.Fprintf(p.Out, "  %-14s %s\n  %-14s (%s)\n", tools.PackPrefix+id, pk.Description, "", strings.Join(pk.Tools, ", "))
+	}
+	fmt.Fprintf(p.Out, "  Single tools: %s\n", strings.Join(f.Catalog.ToolIDs(), ", "))
+	var needed []string
+	for _, m := range f.Harnesses {
+		needed = append(needed, m.Tools...)
+	}
+	if len(needed) > 0 {
+		fmt.Fprintf(p.Out, "  Always included for the harnesses: %s\n", strings.Join(needed, ", "))
+	}
+
+	// A new config starts with the coding pack. An existing one keeps what it
+	// has, so taking every default changes nothing (a config from before
+	// tools existed has none, and keeps none until a tool is chosen).
+	def := DefaultTools
+	switch {
+	case o.Tools != nil:
+		def = o.Tools
+	case f.Existing != nil:
+		def = a.Tools
+	}
+	var chosen []string
+	_, err := p.Ask("Which? (packs and tools, separated by commas, or none)", toolsText(def), func(s string) error {
+		chosen = []string{}
+		if strings.EqualFold(strings.TrimSpace(s), "none") {
+			return nil
+		}
+		for _, part := range strings.Split(s, ",") {
+			if part = strings.TrimSpace(part); part != "" && !slices.Contains(chosen, part) {
+				chosen = append(chosen, part)
+			}
+		}
+		_, err := f.Catalog.Resolve(chosen, nil)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	if len(chosen) == 0 && a.Tools == nil && o.Tools == nil && f.Existing != nil {
+		return nil // still not set, as before
+	}
+	a.Tools = chosen
+	return nil
+}
+
+func toolsText(list []string) string {
+	if len(list) == 0 {
+		return "none"
+	}
+	return strings.Join(list, ",")
+}
+
 func harnessIDs(list []harness.Manifest) string {
 	var ids []string
 	for _, m := range list {
@@ -412,6 +483,7 @@ func Changes(old, new Answers) []string {
 	add("box", old.Box, new.Box)
 	add("engine", old.Engine, new.Engine)
 	add("harnesses", strings.Join(old.Harnesses, ","), strings.Join(new.Harnesses, ","))
+	add("tools", toolsSetting(old.Tools), toolsSetting(new.Tools))
 	add("workspace", old.Workspace, new.Workspace)
 	add("network", old.Network, new.Network)
 	add("allow", strings.Join(old.Allow, ","), strings.Join(new.Allow, ","))
@@ -423,6 +495,14 @@ func Changes(old, new Answers) []string {
 		add(id, modelText(old.Models[id]), modelText(new.Models[id]))
 	}
 	return out
+}
+
+// toolsSetting tells "not set" (no tools key) from an empty list.
+func toolsSetting(list []string) string {
+	if list == nil {
+		return ""
+	}
+	return toolsText(list)
 }
 
 func mergedKeys[V any](a, b map[string]V) map[string]bool {

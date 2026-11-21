@@ -1,0 +1,92 @@
+# ezbx.lock: the pinned inputs of the EZBox images.
+#
+# Generated from the Dockerfiles, the harness folders and the tool catalogue,
+# so don't edit it by hand. After changing those, regenerate it with
+#   go test ./internal/images -run TestLockFile -update
+# and the tests fail while it is out of date.
+#
+# The box image's Debian packages come from the dated snapshot its base image
+# was made from, so the base image's digest also fixes their versions.
+# ezbx build records the versions it got in images.json, next to ezbx.toml.
+version = 1
+
+[images.gateway]
+dockerfile = "docker/gateway.Dockerfile"
+GO_IMAGE = "golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf"
+
+[images.box]
+dockerfile = "docker/box.Dockerfile"
+NODE_IMAGE = "node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54"
+
+[harnesses.pi]
+type = "npm"
+package = "@earendil-works/pi-coding-agent"
+version = "1.5.0"
+verified = "verified"
+lockfile = "harnesses/pi/package-lock.json"
+lockfile_sha256 = "178010e43ae5558720b8eafbd15b57322e12a609fc67728ff5d7221824d3054e"
+tools = ["fd", "ripgrep"]
+
+[tools.chromium]
+debian = ["chromium", "fonts-liberation"]
+commands = ["chromium"]
+verified = "verified"
+
+[tools.curl]
+debian = ["curl"]
+commands = ["curl"]
+verified = "verified"
+
+[tools.fd]
+debian = ["fd-find"]
+commands = ["fdfind", "fd"]
+verified = "verified"
+
+[tools.ffmpeg]
+debian = ["ffmpeg"]
+commands = ["ffmpeg", "ffprobe"]
+verified = "verified"
+
+[tools.imagemagick]
+debian = ["imagemagick"]
+commands = ["convert", "identify"]
+verified = "verified"
+
+[tools.jq]
+debian = ["jq"]
+commands = ["jq"]
+verified = "verified"
+
+[tools.less]
+debian = ["less"]
+commands = ["less"]
+verified = "verified"
+
+[tools.make]
+debian = ["make"]
+commands = ["make"]
+verified = "verified"
+
+[tools.python3]
+debian = ["python3"]
+commands = ["python3"]
+verified = "verified"
+
+[tools.ripgrep]
+debian = ["ripgrep"]
+commands = ["rg"]
+verified = "verified"
+
+[tools.unzip]
+debian = ["unzip"]
+commands = ["unzip"]
+verified = "verified"
+
+[packs.coding]
+tools = ["curl", "fd", "jq", "less", "make", "python3", "ripgrep", "unzip"]
+
+[packs.media]
+tools = ["ffmpeg", "imagemagick"]
+
+[packs.web]
+tools = ["chromium"]

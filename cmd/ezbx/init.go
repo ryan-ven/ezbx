@@ -15,14 +15,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ryan-ven/ezbx/catalog"
 	"github.com/ryan-ven/ezbx/harnesses"
 	"github.com/ryan-ven/ezbx/internal/adapter"
 	"github.com/ryan-ven/ezbx/internal/box"
 	"github.com/ryan-ven/ezbx/internal/config"
 	"github.com/ryan-ven/ezbx/internal/detect"
 	"github.com/ryan-ven/ezbx/internal/harness"
+	"github.com/ryan-ven/ezbx/internal/images"
 	"github.com/ryan-ven/ezbx/internal/paths"
 	"github.com/ryan-ven/ezbx/internal/setup"
+	"github.com/ryan-ven/ezbx/internal/tools"
 	"github.com/ryan-ven/ezbx/providers"
 )
 
@@ -44,6 +47,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&o.KeyEnv, "key-env", "", "NAME of an environment variable holding the engine's key")
 	fs.BoolVar(&o.Reasoning, "reasoning", false, "mark the engine's models as reasoning models")
 	harnessList := fs.String("harness", "", "harnesses, separated by commas, such as pi")
+	toolList := fs.String("tools", "", "tool packs and tools, separated by commas, such as pack:coding,ffmpeg, or none")
 	fs.StringVar(&o.Workspace, "workspace", "", "the workspace folder")
 	fs.StringVar(&o.Network, "network", "", "off, allow or on")
 	fs.StringVar(&o.Memory, "memory", "", "memory limit, such as 8g")
@@ -51,12 +55,22 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if fs.NArg() != 0 {
-		fmt.Fprintln(stderr, "Usage: ezbx init [--plan] [--yes] [--no-start] [--config FILE] [--engine ID] [--harness pi] [--workspace PATH] [--network off|allow|on] [--memory 8g]")
+		fmt.Fprintln(stderr, "Usage: ezbx init [--plan] [--yes] [--no-start] [--config FILE] [--engine ID] [--harness pi] [--tools pack:coding] [--workspace PATH] [--network off|allow|on] [--memory 8g]")
 		return 2
 	}
 	if *harnessList != "" {
 		for _, h := range strings.Split(*harnessList, ",") {
 			o.Harnesses = append(o.Harnesses, strings.TrimSpace(h))
+		}
+	}
+	if *toolList != "" {
+		o.Tools = []string{}
+		if !strings.EqualFold(*toolList, "none") {
+			for _, t := range strings.Split(*toolList, ",") {
+				if t = strings.TrimSpace(t); t != "" {
+					o.Tools = append(o.Tools, t)
+				}
+			}
 		}
 	}
 	if o.URL != "" && o.Engine == "" {
@@ -102,9 +116,13 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	if _, err := config.Parse(text); err != nil {
 		return report(stderr, fmt.Errorf("internal error: the config init would write doesn't load: %w", err))
 	}
+	gw, bx, err := imageSpecs(res.Answers.Tools)
+	if err != nil {
+		return report(stderr, err)
+	}
 	pl := setup.Plan{
 		Result: res, ConfigFile: cfgFile, StateDir: dirs.Box(res.Answers.Box),
-		Images: imagesPresent(ctx), Harnesses: facts.Harnesses, NoStart: *noStart,
+		Images: imagesPresent(ctx, gw, bx), Tools: bx.Tools.IDs(), Harnesses: facts.Harnesses, NoStart: *noStart,
 	}
 	if existing != nil {
 		old := setup.FromConfig(existing)
@@ -155,6 +173,12 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	if !start {
 		fmt.Fprintf(stdout, "\nThe box was not started: %s.\n", why)
 		return 0
+	}
+	if len(pl.MissingImages()) > 0 {
+		fmt.Fprintln(stdout)
+		if err := buildImages(ctx, dirs, stdout, gw, bx); err != nil {
+			return report(stderr, fmt.Errorf("%w\nThe config is written. Fix what is shown above, then run ezbx build and ezbx up (or ezbx init again)", err))
+		}
 	}
 	fmt.Fprintln(stdout)
 	if code := runUp([]string{"--config", cfgFile}, stdout, stderr); code != 0 {
@@ -218,6 +242,9 @@ func gatherFacts(ctx context.Context, existing *config.Config, o setup.Options, 
 			f.Harnesses = append(f.Harnesses, m)
 		}
 	}
+	if f.Catalog, err = tools.Load(catalog.FS); err != nil {
+		return f, fmt.Errorf("internal error loading the tool catalogue: %w", err)
+	}
 
 	adapters, err := adapter.LoadFS(providers.FS)
 	if err != nil {
@@ -252,12 +279,13 @@ func gatherFacts(ctx context.Context, existing *config.Config, o setup.Options, 
 	return f, nil
 }
 
-// imagesPresent reports which EZBox images are on this computer.
-func imagesPresent(ctx context.Context) map[string]bool {
-	out := map[string]bool{}
-	for _, img := range []string{box.GatewayImage, box.BoxImage} {
-		_, err := dockerIn(ctx, nil, "image", "inspect", "--format", "{{.Id}}", img)
-		out[img] = err == nil
+// imagesPresent reports whether each image is built from these inputs.
+// This only asks the local Docker engine, so --plan stays off the network.
+func imagesPresent(ctx context.Context, specs ...images.Spec) []setup.Image {
+	ir := imageRunner(io.Discard)
+	var out []setup.Image
+	for _, s := range specs {
+		out = append(out, setup.Image{Tag: s.Tag(), Present: ir.Check(ctx, s) == nil})
 	}
 	return out
 }

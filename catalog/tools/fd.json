@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "id": "fd",
+  "name": "fd",
+  "description": "Fast file finder. Debian names the command fdfind; fd is linked to it.",
+  "debian": [
+    "fd-find"
+  ],
+  "commands": [
+    "fdfind",
+    "fd"
+  ],
+  "links": {
+    "fd": "fdfind"
+  },
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: fd-find 8.6.0-3. fd (linked to fdfind) and fdfind found a file by extension. Pi finds it as fdfind and doesn't download its own."
+  }
+}

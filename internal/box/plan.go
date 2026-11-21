@@ -23,12 +23,6 @@ import (
 	"github.com/ryan-ven/ezbx/internal/paths"
 )
 
-// Images used until the image builder exists.
-const (
-	GatewayImage = "ezbx-gateway:dev"
-	BoxImage     = "ezbx-box:dev"
-)
-
 // Fixed values inside the containers.
 const (
 	ManagedLabel   = "ezbx.managed=true"
@@ -84,6 +78,15 @@ type Plan struct {
 
 	Harnesses []string
 	HomeFiles []harness.File // rendered harness configs, relative to the agent's home
+
+	// The images, named after a hash of their inputs (see internal/images).
+	// Inputs is that full hash, which the image must carry as a label.
+	GatewayImage, BoxImage Image
+}
+
+// Image is an image's name and the inputs label it must have.
+type Image struct {
+	Tag, Inputs string
 }
 
 // TokenFile is where the admin token is kept on the host.
@@ -132,7 +135,7 @@ func (p Plan) GatewayArgs() []string {
 		// the key never appears in a command line.
 		a = append(a, "-e", p.KeyEnv)
 	}
-	a = append(a, GatewayImage, "gateway", "serve", "--listen", modelAddr,
+	a = append(a, p.GatewayImage.Tag, "gateway", "serve", "--listen", modelAddr,
 		"--upstream", p.Upstream, "--engine", p.EngineID)
 	if p.UpstreamHost != "" {
 		a = append(a, "--upstream-host", p.UpstreamHost)
@@ -175,7 +178,7 @@ func (p Plan) BoxArgs() []string {
 	a = append(a, "-e", "NO_PROXY="+gatewayAlias, "-e", "no_proxy="+gatewayAlias,
 		"-v", p.Workspace+":/workspace",
 		"-v", p.Names.Home+":"+agentHome,
-		BoxImage, "sleep", "infinity")
+		p.BoxImage.Tag, "sleep", "infinity")
 	return a
 }
 

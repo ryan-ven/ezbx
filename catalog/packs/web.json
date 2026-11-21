@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "web",
+  "name": "Web",
+  "description": "A headless browser for checking pages and taking screenshots. Large (several hundred MB).",
+  "tools": [
+    "chromium"
+  ]
+}

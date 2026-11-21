@@ -5,7 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ryan-ven/ezbx/internal/box"
 	"github.com/ryan-ven/ezbx/internal/harness"
 )
 
@@ -15,7 +14,8 @@ type Plan struct {
 	Old        *Answers // the existing config, if any
 	ConfigFile string
 	StateDir   string
-	Images     map[string]bool // image name -> already on this computer
+	Images     []Image  // the gateway and box images this config needs
+	Tools      []string // the tool ids the box image gets, with the harnesses' own
 	Harnesses  []harness.Manifest
 	NoStart    bool // --no-start
 	BoxUp      bool // the box's containers exist already
@@ -26,12 +26,19 @@ type Plan struct {
 // Changed reports whether the config file would be written.
 func (p Plan) Changed() bool { return p.Old == nil || len(Changes(*p.Old, p.Result.Answers)) > 0 }
 
-// MissingImages lists the images that aren't on this computer.
+// Image is one image the config needs, and whether it is built already.
+type Image struct {
+	Tag     string
+	Present bool
+}
+
+// MissingImages lists the images that aren't built yet. Apply builds them
+// before starting the box.
 func (p Plan) MissingImages() []string {
 	var out []string
-	for _, img := range []string{box.GatewayImage, box.BoxImage} {
-		if !p.Images[img] {
-			out = append(out, img)
+	for _, img := range p.Images {
+		if !img.Present {
+			out = append(out, img.Tag)
 		}
 	}
 	return out
@@ -46,8 +53,6 @@ func (p Plan) Start() (bool, string) {
 		return false, "no engine was chosen; start it, then run ezbx up"
 	case len(p.Result.Engine.Models) == 0:
 		return false, "the engine lists no models; load one, then run ezbx up"
-	case len(p.MissingImages()) > 0:
-		return false, "images are missing (see above); build them, then run ezbx up"
 	case p.BoxUp && p.Changed():
 		return false, "the box is up; to apply the changes, run ezbx down, then ezbx up"
 	case p.BoxUp:
@@ -108,6 +113,14 @@ func (p Plan) Review() string {
 		}
 	}
 	row("Harnesses", strings.Join(hs, ", "))
+	tl := "none"
+	if len(p.Tools) > 0 {
+		tl = strings.Join(p.Tools, ", ")
+	}
+	if len(a.Tools) > 0 {
+		tl += "   (from " + strings.Join(a.Tools, ", ") + ")"
+	}
+	row("Tools", tl)
 	ws := a.Workspace
 	if !p.Workspace {
 		ws += "   (will be created)"
@@ -136,16 +149,20 @@ func (p Plan) Review() string {
 		fmt.Fprintf(&b, "  config file   %s (no changes)\n", p.ConfigFile)
 	}
 	fmt.Fprintf(&b, "  state folder  %s (admin token, logs, approved hosts)\n", p.StateDir)
-	if miss := p.MissingImages(); len(miss) > 0 {
-		fmt.Fprintf(&b, "  images        MISSING: %s. Build them from a clone of the repository:\n", strings.Join(miss, ", "))
-		for _, img := range miss {
-			name := strings.TrimSuffix(strings.TrimPrefix(img, "ezbx-"), ":dev")
-			fmt.Fprintf(&b, "                  docker build -f docker/%s.Dockerfile -t %s .\n", name, img)
-		}
-	} else {
-		fmt.Fprintf(&b, "  images        %s and %s are on this computer\n", box.GatewayImage, box.BoxImage)
+	ok, why := p.Start()
+	var tags []string
+	for _, img := range p.Images {
+		tags = append(tags, img.Tag)
 	}
-	if ok, why := p.Start(); ok {
+	switch miss := p.MissingImages(); {
+	case len(miss) == 0:
+		fmt.Fprintf(&b, "  images        %s (built already)\n", strings.Join(tags, " and "))
+	case ok:
+		fmt.Fprintf(&b, "  images        ezbx build: %s (downloads from the internet once; the box image is several hundred MB)\n", strings.Join(miss, " and "))
+	default:
+		fmt.Fprintf(&b, "  images        not built yet: %s. ezbx build makes them (init does, when it starts the box)\n", strings.Join(miss, " and "))
+	}
+	if ok {
 		b.WriteString("  then          ezbx up (2 networks, 1 volume, 2 containers), then ezbx doctor\n")
 	} else {
 		fmt.Fprintf(&b, "  then          nothing is started: %s\n", why)

@@ -27,7 +27,9 @@ const usage = `ezbx - EZBox command line tool (early development)
 Usage:
   ezbx init [--plan] [--yes] [--no-start] [--config FILE] [--engine ID|auto|later]
             [--url ADDRESS] [--key-env NAME] [--reasoning] [--harness pi]
-            [--workspace PATH] [--network off|allow|on] [--memory 8g]
+            [--tools pack:coding,ffmpeg|none] [--workspace PATH]
+            [--network off|allow|on] [--memory 8g]
+  ezbx build [--config FILE] [--prune [--yes]]
   ezbx up [--config FILE] [--no-doctor]
   ezbx down [--box NAME] [--config FILE]
   ezbx shell [HARNESS] [--box NAME] [-- HARNESS ARGS...]
@@ -50,6 +52,11 @@ Commands:
   init            Guided setup: finds the engine, asks the questions, shows
                   the plan, then writes ezbx.toml and starts the box.
                   Run it again to change the setup.
+  build           Build the gateway and box images from the files inside
+                  this program, with the tools chosen in ezbx.toml. Each
+                  image is named after a hash of what goes into it, so an
+                  image that is built already is skipped. --prune then
+                  removes older EZBox images, after asking.
   up              Start the box described in ezbx.toml: its networks, the
                   gateway and the box, with the harness config filled in
                   from the engine's models. Then run the doctor.
@@ -104,6 +111,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(args) >= 1 && args[0] == "shell" {
 		return runShell(args[1:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "build" {
+		return runBuild(args[1:], stdout, stderr)
 	}
 	if len(args) >= 1 && args[0] == "up" {
 		return runUp(args[1:], stdout, stderr)

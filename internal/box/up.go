@@ -90,9 +90,14 @@ func (r *Runner) Up(ctx context.Context, p Plan) error {
 	if err := r.CheckDocker(ctx); err != nil {
 		return err
 	}
-	for _, img := range []string{GatewayImage, BoxImage} {
-		if _, err := r.run(ctx, "image", "inspect", "--format", "{{.Id}}", img); err != nil {
-			return fmt.Errorf("the image %s is missing. Build it from the repository: docker build -f docker/%s.Dockerfile -t %s .", img, strings.TrimSuffix(strings.TrimPrefix(img, "ezbx-"), ":dev"), img)
+	// Each image must be the one ezbx build made from these inputs.
+	for _, img := range []Image{p.GatewayImage, p.BoxImage} {
+		out, err := r.run(ctx, "image", "inspect", "--format", `{{index .Config.Labels "ezbx.inputs"}}`, img.Tag)
+		if err != nil {
+			return fmt.Errorf("the image %s isn't built yet. Run ezbx build (it needs the internet once), then ezbx up", img.Tag)
+		}
+		if got := strings.TrimSpace(string(out)); got != img.Inputs {
+			return fmt.Errorf("the image %s wasn't built by ezbx build from these files. Remove it, then run ezbx build", img.Tag)
 		}
 	}
 

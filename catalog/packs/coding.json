@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "coding",
+  "name": "Coding",
+  "description": "Everyday command-line tools for coding agents.",
+  "tools": [
+    "curl",
+    "fd",
+    "jq",
+    "less",
+    "make",
+    "python3",
+    "ripgrep",
+    "unzip"
+  ]
+}

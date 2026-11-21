@@ -7,6 +7,7 @@ package setup
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ type Answers struct {
 	Network   string
 	Allow     []string
 	Harnesses []string
+	Tools     []string                    // tool ids and "pack:" names; nil when not set
 	Engine    string                      // an adapter id, or "auto"
 	Overrides map[string]config.EngineURL // per engine: url, key_env, host
 	Models    map[string]config.Model
@@ -38,6 +40,7 @@ func FromConfig(c *config.Config) Answers {
 	a := Answers{
 		Box: name, Workspace: b.Workspace, Memory: b.Memory, CPUs: b.CPUs, PIDs: b.PIDs,
 		Network: b.Network, Allow: append([]string(nil), b.Allow...), Harnesses: append([]string(nil), b.Harnesses...),
+		Tools:  slices.Clone(b.Tools),
 		Engine: c.Engine.Use, Overrides: maps.Clone(c.Engine.Overrides), Models: maps.Clone(c.Models), Log: c.Gateway.Log,
 	}
 	if a.PIDs == config.DefaultPIDs {
@@ -83,7 +86,11 @@ func ConfigText(a Answers, now time.Time) string {
 	if len(a.Allow) > 0 {
 		w("allow     = %s   # hosts for allow mode, besides the harnesses' own\n", list(a.Allow))
 	}
-	w("harnesses = %s\n\n", list(a.Harnesses))
+	w("harnesses = %s\n", list(a.Harnesses))
+	if a.Tools != nil {
+		w("tools     = %s   # tool packs (pack:NAME) and single tools; after a change, ezbx build\n", list(a.Tools))
+	}
+	w("\n")
 
 	w("[engine]\nuse = %s\n", quote(a.Engine))
 	for _, id := range sortedKeys(a.Overrides) {

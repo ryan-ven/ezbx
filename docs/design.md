@@ -1,6 +1,6 @@
 # EZBox design (draft 0.1)
 
-Status: first draft. Most of this is a proposal. Built so far: engine detection, the gateway (model route, egress proxy, admin API), config rendering for Pi, `ezbx doctor`, `ezbx up`/`down`, which create the networks, the gateway and the box from `ezbx.toml`, `ezbx shell`, `ezbx net` and `ezbx engine use` for a running box, and `ezbx init`, the guided setup. Items marked **verify** depend on facts I still need to confirm against current documentation before building.
+Status: first draft. Most of this is a proposal. Built so far: engine detection, the gateway (model route, egress proxy, admin API), config rendering for Pi, `ezbx doctor`, `ezbx up`/`down`, which create the networks, the gateway and the box from `ezbx.toml`, `ezbx shell`, `ezbx net` and `ezbx engine use` for a running box, `ezbx init`, the guided setup, and `ezbx build` with `ezbx.lock` and tool packs ([build.md](build.md)). Items marked **verify** depend on facts I still need to confirm against current documentation before building.
 
 ## 1. Goal
 
@@ -101,7 +101,8 @@ Future option: a read-only root filesystem with tmpfs for scratch space.
 Each harness is a folder, `harnesses/<id>/`, with a `manifest.json` and an install script. The format is described in [harness-manifest.md](harness-manifest.md), and `harnesses/pi/manifest.json` is a complete example.
 
 - **Verified:** nothing ships without a recorded install check.
-- **Pinned:** versions are pinned and recorded in `ezbx.lock`, so a rebuild gives the same box.
+- **Pinned:** versions are pinned and recorded in `ezbx.lock`, so a rebuild gives the same box (see [build.md](build.md)).
+- **Tools:** programs such as ripgrep, Chromium or FFmpeg come from a catalogue of verified tools and tool packs, chosen in `ezbx.toml` and built into the image. The agent can't install programs itself.
 - **Config generation:** the harness template is filled from the selected engine adapter's model list, so each harness points at the gateway automatically.
 - **Candidates:** Pi, oh-my-pi (a separate project from Pi), OpenCode, Codex CLI, Claude Code, Hermes Agent and OpenClaw. Daily-driver agents such as Hermes Agent and OpenClaw may need extra services or different runtimes, so they come after the coding harnesses.
 - **Autonomy flag:** each harness's "skip approvals" mode is set only inside the box and is documented per harness (**verify** names against current docs).
@@ -171,6 +172,9 @@ It does not fully protect against:
 | 9 | Where config and state live | Windows: `%LOCALAPPDATA%\ezbx` holds `ezbx.toml`, and `%LOCALAPPDATA%\ezbx\state\<box>` holds the admin token and logs (snapshots later). Not the Roaming folder, which a domain profile copies between machines; the token, the logs and the machine's own paths should stay on this one. macOS: `~/Library/Application Support/ezbx`, the same layout. Linux: `$XDG_CONFIG_HOME/ezbx` and `$XDG_STATE_HOME/ezbx` (`~/.config/ezbx` and `~/.local/state/ezbx`). `EZBX_HOME` moves both, for tests. The state folder is never mounted into the box, and the workspace may not overlap it. On Windows the token's file mode means little; what protects it is that the user's profile folder is private to that user and to administrators. |
 | 10 | Config format | TOML, read with [BurntSushi/toml](https://github.com/BurntSushi/toml) (MIT, no dependencies of its own), EZBox's first outside module, pinned in `go.sum`. Unknown settings are refused, so a typo is an error. Sections: `[box.<name>]`, `[engine]` with `[engine.<id>]` overrides, `[models."<id>"]` for facts engines don't report, and `[gateway]`. A parser of our own could replace the module later if we want no dependencies. |
 | 11 | Changes to a running box | `ezbx net off\|allow\|on` and `ezbx engine use` change the running gateway only. The next `ezbx up`, or a restart of the gateway (Docker Desktop restarting, say), goes back to `ezbx.toml`: the safe default wins, so a forgotten `net on` doesn't survive. Hosts approved with `ezbx net allow HOST` are kept: they are saved in `approved-hosts` in the box's state folder, which is mounted read-only into the gateway (never the box) and read with `--allow-file` each time it starts. `ezbx net remove HOST` forgets one. |
+| 12 | Where the image build files come from | Carried inside the `ezbx` program: the Dockerfiles, harness install files, the tool catalogue and the gateway's Go source. `ezbx build` needs no copy of the repository. See [build.md](build.md). |
+| 13 | `ezbx.lock` and what `up` accepts | `ezbx.lock` is committed and generated from the files: base image digests, harness versions and lockfile hashes, tools. What was built on a computer goes in `images.json` next to `ezbx.toml`. `up` refuses images not built from the current inputs. |
+| 14 | Image names and old images | Each image is named after a hash of its inputs (`ezbx-box:<12 hex digits>`). Rebuilds keep the old images; `ezbx build --prune` removes older ones after asking, keeping the current images and the ones they replaced. |
 
 ## 14. Open questions
 

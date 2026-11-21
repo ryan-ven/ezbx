@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "id": "ripgrep",
+  "name": "ripgrep",
+  "description": "Fast text search (rg).",
+  "debian": [
+    "ripgrep"
+  ],
+  "commands": [
+    "rg"
+  ],
+  "verified": {
+    "status": "verified",
+    "observedOn": "2026-11-21",
+    "notes": "Built by ezbx build from the Debian snapshot of the box's base image (20261104T212339Z) and used as the agent user with every capability dropped, no-new-privileges and no network: ripgrep 13.0.0-4+b2. rg found a word in a folder. Pi finds it and doesn't download its own."
+  }
+}

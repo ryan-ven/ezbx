@@ -35,6 +35,7 @@ type Box struct {
 	Network   string     `toml:"network"`   // off | allow | on
 	Allow     []string   `toml:"allow"`     // extra hosts for allow mode
 	Harnesses []string   `toml:"harnesses"`
+	Tools     []string   `toml:"tools"` // tool ids and "pack:" names; nil when the key is left out
 	ReadOnly  []ReadOnly `toml:"readonly"`
 }
 
@@ -148,6 +149,7 @@ var (
 	boxNameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 	memoryRE  = regexp.MustCompile(`^[1-9][0-9]*[kmg]$`)
 	envNameRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	toolRE    = regexp.MustCompile(`^(pack:)?[a-z][a-z0-9-]{0,31}$`)
 	hostRE    = regexp.MustCompile(`^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
 )
 
@@ -249,6 +251,13 @@ func (b *Box) check(name string) error {
 	}
 	if len(b.Harnesses) == 0 {
 		return errors.New(p + `harnesses is empty: add at least one, such as ["pi"]`)
+	}
+	// Only the form is checked here; the catalogue decides whether a tool or
+	// pack exists, when the image is planned.
+	for _, t := range b.Tools {
+		if !toolRE.MatchString(t) {
+			return fmt.Errorf(`%stools %q: use a tool id such as "ffmpeg" or a pack such as "pack:coding"`, p, t)
+		}
 	}
 	if len(b.ReadOnly) > 0 {
 		return errors.New(p + "readonly folders are not supported yet, because hiding secret files in them isn't built. Remove the readonly entries for now")

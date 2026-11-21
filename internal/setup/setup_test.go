@@ -7,12 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
-	"github.com/ryan-ven/ezbx/internal/box"
 	"github.com/ryan-ven/ezbx/internal/config"
 	"github.com/ryan-ven/ezbx/internal/detect"
 	"github.com/ryan-ven/ezbx/internal/harness"
+	"github.com/ryan-ven/ezbx/internal/tools"
 )
 
 const gib = int64(1 << 30)
@@ -33,6 +34,7 @@ func TestConfigTextRoundTrip(t *testing.T) {
 	a := Answers{
 		Box: "main", Workspace: `C:\Users\Example\my "work"` + "\tspace", Memory: "8g", CPUs: 2.5, PIDs: 1024,
 		Network: "allow", Allow: []string{"registry.npmjs.org", "*.example.com"}, Harnesses: []string{"pi"},
+		Tools:     []string{"pack:coding", "ffmpeg"},
 		Engine:    "strata",
 		Overrides: map[string]config.EngineURL{"strata": {URL: "http://127.0.0.1:53000", KeyEnv: "STRATA_KEY", Host: "localhost:53000"}, "ollama": {}},
 		Models:    map[string]config.Model{"big-model": {Reasoning: yes(), MaxTokens: 8192, ContextWindow: 32768, Name: "Big"}, "small": {Reasoning: no()}, "empty": {}},
@@ -47,6 +49,9 @@ func TestConfigTextRoundTrip(t *testing.T) {
 	if back.Workspace != a.Workspace || back.Memory != "8g" || back.CPUs != 2.5 || back.PIDs != 1024 || back.Network != "allow" ||
 		strings.Join(back.Allow, ",") != "registry.npmjs.org,*.example.com" || back.Engine != "strata" || back.Log == nil || *back.Log {
 		t.Errorf("box or engine: %+v", back)
+	}
+	if strings.Join(back.Tools, ",") != "pack:coding,ffmpeg" {
+		t.Errorf("tools: %q", back.Tools)
 	}
 	if back.Overrides["strata"] != a.Overrides["strata"] {
 		t.Errorf("override: %+v", back.Overrides)
@@ -73,6 +78,18 @@ func TestConfigTextRoundTrip(t *testing.T) {
 	if strings.Contains(text, "pids") || strings.Contains(text, "cpus") || !strings.Contains(text, "log = true") {
 		t.Error(text)
 	}
+	// No tools setting stays out; an empty one is written, and read back empty.
+	a.Tools = nil
+	if text = ConfigText(a, time.Now()); strings.Contains(text, "tools") {
+		t.Error(text)
+	}
+	a.Tools = []string{}
+	text = ConfigText(a, time.Now())
+	if c, err := config.Parse(text); err != nil || !strings.Contains(text, "tools     = []") {
+		t.Errorf("%v\n%s", err, text)
+	} else if b := FromConfig(c); b.Tools == nil || len(b.Tools) != 0 {
+		t.Errorf("an empty tools list must read back empty, not unset: %#v", b.Tools)
+	}
 }
 
 func TestQuote(t *testing.T) {
@@ -84,7 +101,7 @@ func TestQuote(t *testing.T) {
 
 func facts(t *testing.T) Facts {
 	home := filepath.Join(t.TempDir(), "home")
-	pi := harness.Manifest{ID: "pi", Name: "Pi", Install: harness.Install{Version: "1.5.0"}, Verified: harness.Verified{Status: "verified"}}
+	pi := harness.Manifest{ID: "pi", Name: "Pi", Install: harness.Install{Version: "1.5.0"}, Tools: []string{"fd"}, Verified: harness.Verified{Status: "verified"}}
 	other := harness.Manifest{ID: "other", Name: "Other", Network: harness.Network{Domains: []string{"api.example.com"}}, Verified: harness.Verified{Status: "verified"}}
 	return Facts{
 		Engines: []detect.Engine{
@@ -92,8 +109,28 @@ func facts(t *testing.T) Facts {
 			{ID: "openai", Name: "OpenAI-compatible server", URL: "http://127.0.0.1:18080", Models: []detect.Model{{ID: "fake"}}},
 		},
 		Harnesses: []harness.Manifest{other, pi}, DockerMemory: 31 * gib, Home: home,
-		Own: []string{filepath.Join(home, "appdata", "ezbx")},
+		Own:     []string{filepath.Join(home, "appdata", "ezbx")},
+		Catalog: testCatalog(t),
 	}
+}
+
+// testCatalog has two verified tools, one unverified, and one pack.
+func testCatalog(t *testing.T) *tools.Catalog {
+	tool := func(id, status string) *fstest.MapFile {
+		v := `{"status": "unverified", "observedOn": "", "notes": ""}`
+		if status == "verified" {
+			v = `{"status": "verified", "observedOn": "2026-01-02", "notes": "checked"}`
+		}
+		return &fstest.MapFile{Data: []byte(`{"schema": 1, "id": "` + id + `", "name": "` + id + `", "description": "d", "debian": ["` + id + `"], "commands": ["` + id + `"], "verified": ` + v + `}`)}
+	}
+	c, err := tools.Load(fstest.MapFS{
+		"tools/fd.json": tool("fd", "verified"), "tools/jq.json": tool("jq", "verified"), "tools/wip.json": tool("wip", "unverified"),
+		"packs/coding.json": {Data: []byte(`{"schema": 1, "id": "coding", "name": "Coding", "description": "d", "tools": ["fd", "jq"]}`)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
 }
 
 func prompter(input string) (*Prompter, *strings.Builder) {
@@ -117,6 +154,51 @@ func TestGatherDefaults(t *testing.T) {
 	if _, ok := a.Models["big-model"]; ok {
 		t.Error("reasoning defaults to no, so nothing is written")
 	}
+	if strings.Join(a.Tools, ",") != "pack:coding" {
+		t.Errorf("a new config starts with the coding pack: %q", a.Tools)
+	}
+}
+
+// An existing config keeps its tools, and one without a tools setting keeps
+// none, unless a flag or an answer says otherwise.
+func TestGatherToolsOfExistingConfig(t *testing.T) {
+	ws := filepath.Join(t.TempDir(), "ws")
+	base := "version = 1\n[box.main]\nworkspace = '" + ws + "'\nharnesses = ['pi']\n"
+	for name, tc := range map[string]struct {
+		setting string
+		o       Options
+		typed   string
+		want    string // "<nil>" for not set
+	}{
+		"unset, default":   {"", Options{}, "", "<nil>"},
+		"unset, typed":     {"", Options{}, "jq", "jq"},
+		"set, default":     {"tools = ['jq']\n", Options{}, "", "jq"},
+		"set, typed none":  {"tools = ['jq']\n", Options{}, "none", ""},
+		"unset, flag none": {"", Options{Tools: []string{}}, "", ""},
+		"set, flag":        {"tools = ['jq']\n", Options{Tools: []string{"pack:coding"}}, "", "pack:coding"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := facts(t)
+			c, err := config.Parse(base + tc.setting)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.Existing = c
+			// Answers in order: engine, reasoning, harness, tools, then the rest default.
+			p, out := prompter("\n\n\n" + tc.typed + "\n\n\n\n")
+			res, err := Gather(f, tc.o, p)
+			if err != nil {
+				t.Fatalf("%v\n%s", err, out)
+			}
+			got := strings.Join(res.Answers.Tools, ",")
+			if res.Answers.Tools == nil {
+				got = "<nil>"
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
 }
 
 func TestGatherTyped(t *testing.T) {
@@ -124,7 +206,7 @@ func TestGatherTyped(t *testing.T) {
 	ws := filepath.Join(t.TempDir(), "ws")
 	// engine 2; reasoning: bad answer then y; harnesses 1,2; a bad workspace
 	// (the home folder) then a good one; allow with hosts; memory.
-	input := strings.Join([]string{"2", "maybe", "y", "1,2,1", f.Home, ws, "allow", "pypi.org, GitHub.com", "6G"}, "\n") + "\n"
+	input := strings.Join([]string{"2", "maybe", "y", "1,2,1", "pack:nope", "wip", "pack:coding, jq, jq", f.Home, ws, "allow", "pypi.org, GitHub.com", "6G"}, "\n") + "\n"
 	p, out := prompter(input)
 	res, err := Gather(f, Options{}, p)
 	if err != nil {
@@ -132,13 +214,13 @@ func TestGatherTyped(t *testing.T) {
 	}
 	a := res.Answers
 	if res.Engine.ID != "openai" || a.Engine != "openai" || strings.Join(a.Harnesses, ",") != "other,pi" || a.Workspace != ws ||
-		a.Network != "allow" || strings.Join(a.Allow, ",") != "pypi.org,github.com" || a.Memory != "6g" {
+		a.Network != "allow" || strings.Join(a.Allow, ",") != "pypi.org,github.com" || a.Memory != "6g" || strings.Join(a.Tools, ",") != "pack:coding,jq" {
 		t.Errorf("%+v", a)
 	}
 	if r := a.Models["fake"].Reasoning; r == nil || !*r {
 		t.Error("reasoning should be set")
 	}
-	for _, want := range []string{"Answer y or n.", "home folder", "api.example.com"} {
+	for _, want := range []string{"Answer y or n.", "home folder", "api.example.com", `unknown tool pack "nope"`, `"wip" isn't verified`, "Always included for the harnesses: fd"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("missing %q in:\n%s", want, out.String())
 		}
@@ -250,7 +332,8 @@ func plan(t *testing.T) Plan {
 	return Plan{
 		Result:     Result{Engine: &e, Answers: Answers{Box: "main", Engine: "strata", Workspace: filepath.Join(f.Home, "ws"), Network: "off", Memory: "8g", Harnesses: []string{"pi"}}},
 		ConfigFile: "ezbx.toml", StateDir: "state",
-		Images:    map[string]bool{box.GatewayImage: true, box.BoxImage: true},
+		Images:    []Image{{Tag: "ezbx-gateway:aaa", Present: true}, {Tag: "ezbx-box:bbb", Present: true}},
+		Tools:     []string{"fd"},
 		Harnesses: f.Harnesses,
 	}
 }
@@ -264,7 +347,7 @@ func TestPlanStart(t *testing.T) {
 		"no-start":    {func(p *Plan) { p.NoStart = true }, "--no-start"},
 		"no engine":   {func(p *Plan) { p.Result.Engine = nil }, "no engine"},
 		"no models":   {func(p *Plan) { e := *p.Result.Engine; e.Models = nil; p.Result.Engine = &e }, "no models"},
-		"image":       {func(p *Plan) { p.Images[box.BoxImage] = false }, "images are missing"},
+		"image":       {func(p *Plan) { p.Images[1].Present = false }, ""}, // apply builds it first
 		"up, changed": {func(p *Plan) { p.BoxUp = true }, "ezbx down, then ezbx up"},
 		"up, same": {func(p *Plan) {
 			p.BoxUp = true
@@ -287,20 +370,30 @@ func TestPlanStart(t *testing.T) {
 
 func TestReview(t *testing.T) {
 	p := plan(t)
-	p.Images[box.GatewayImage] = false
+	p.Images[0].Present = false
+	p.Result.Answers.Tools = []string{"pack:coding"}
+	p.Tools = []string{"fd", "jq"}
 	text := p.Review()
 	for _, want := range []string{"nothing has been changed yet", "Strata at http://127.0.0.1:53000", "Pi 1.5.0 (verified)", "(will be created)", "(new)",
-		"MISSING: ezbx-gateway:dev", "docker build -f docker/gateway.Dockerfile -t ezbx-gateway:dev .", "nothing is started"} {
+		"Tools         fd, jq   (from pack:coding)", "images        ezbx build: ezbx-gateway:aaa (downloads", "then          ezbx up"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %q in:\n%s", want, text)
 		}
 	}
 	old := p.Result.Answers
 	old.Network = "on"
+	old.Tools = nil
 	p.Old = &old
-	p.Images[box.GatewayImage] = true
+	p.Images[0].Present = true
 	text = p.Review()
-	if !strings.Contains(text, "kept as ezbx.toml.previous") || !strings.Contains(text, "network    on -> off") || !strings.Contains(text, "ezbx up (2 networks") {
+	if !strings.Contains(text, "kept as ezbx.toml.previous") || !strings.Contains(text, "network    on -> off") || !strings.Contains(text, "ezbx up (2 networks") ||
+		!strings.Contains(text, "tools      (not set) -> pack:coding") || !strings.Contains(text, "ezbx-gateway:aaa and ezbx-box:bbb (built already)") {
+		t.Error(text)
+	}
+	// Not starting: the missing image is named, with how to build it.
+	p.NoStart = true
+	p.Images[1].Present = false
+	if text = p.Review(); !strings.Contains(text, "not built yet: ezbx-box:bbb. ezbx build makes them") {
 		t.Error(text)
 	}
 }
@@ -333,7 +426,7 @@ func TestGatherNamedEngineNotRunning(t *testing.T) {
 func TestGatherAllowHostsAreChecked(t *testing.T) {
 	f := facts(t)
 	ws := filepath.Join(t.TempDir(), "ws")
-	input := strings.Join([]string{"1", "n", "2", ws, "allow", "10.0.0.1, pypi.org", "pypi.org", "4g"}, "\n") + "\n"
+	input := strings.Join([]string{"1", "n", "2", "none", ws, "allow", "10.0.0.1, pypi.org", "pypi.org", "4g"}, "\n") + "\n"
 	p, out := prompter(input)
 	res, err := Gather(f, Options{}, p)
 	if err != nil {
