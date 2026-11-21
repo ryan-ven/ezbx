@@ -25,6 +25,9 @@ import (
 const usage = `ezbx - EZBox command line tool (early development)
 
 Usage:
+  ezbx init [--plan] [--yes] [--no-start] [--config FILE] [--engine ID|auto|later]
+            [--url ADDRESS] [--key-env NAME] [--reasoning] [--harness pi]
+            [--workspace PATH] [--network off|allow|on] [--memory 8g]
   ezbx up [--config FILE] [--no-doctor]
   ezbx down [--box NAME] [--config FILE]
   ezbx shell [HARNESS] [--box NAME] [-- HARNESS ARGS...]
@@ -44,6 +47,9 @@ Usage:
   ezbx doctor [--box NAME] [--json]
 
 Commands:
+  init            Guided setup: finds the engine, asks the questions, shows
+                  the plan, then writes ezbx.toml and starts the box.
+                  Run it again to change the setup.
   up              Start the box described in ezbx.toml: its networks, the
                   gateway and the box, with the harness config filled in
                   from the engine's models. Then run the doctor.
@@ -86,6 +92,9 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) >= 2 && args[0] == "engine" && args[1] == "detect" {
 		return runDetect(args[2:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "init" {
+		return runInit(args[1:], stdout, stderr)
 	}
 	if len(args) >= 2 && args[0] == "engine" && args[1] == "use" {
 		return runEngineUse(args[2:], stdout, stderr)

@@ -71,8 +71,8 @@ type Gateway struct {
 }
 
 // Defaults used when the file leaves a value out.
+// (There is no fixed default memory limit: it comes from Docker's memory.)
 const (
-	DefaultMemory  = "4g"
 	DefaultPIDs    = 512
 	DefaultNetwork = "off"
 )
@@ -165,6 +165,10 @@ func HostName(s string) bool {
 	return strings.Trim(last, "0123456789") != ""
 }
 
+// MemoryValue reports whether s is a memory limit in Docker's form, such as
+// 4g or 512m.
+func MemoryValue(s string) bool { return memoryRE.MatchString(strings.ToLower(s)) }
+
 // BoxName reports whether s can be used in Docker resource names.
 func BoxName(s string) bool { return boxNameRE.MatchString(s) }
 
@@ -215,11 +219,10 @@ func (b *Box) check(name string) error {
 	if strings.TrimSpace(b.Workspace) == "" {
 		return errors.New(p + "workspace is required: the one folder the agent can write to")
 	}
-	if b.Memory == "" {
-		b.Memory = DefaultMemory
-	}
+	// An empty memory limit means: work it out from Docker's memory when the
+	// box starts (see setup.MemoryFor).
 	b.Memory = strings.ToLower(b.Memory)
-	if !memoryRE.MatchString(b.Memory) {
+	if b.Memory != "" && !MemoryValue(b.Memory) {
 		return fmt.Errorf("%smemory %q: use a whole number and k, m or g, such as 4g", p, b.Memory)
 	}
 	if b.CPUs < 0 {

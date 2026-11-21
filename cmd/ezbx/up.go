@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/ryan-ven/ezbx/internal/detect"
 	"github.com/ryan-ven/ezbx/internal/harness"
 	"github.com/ryan-ven/ezbx/internal/paths"
+	"github.com/ryan-ven/ezbx/internal/setup"
 	"github.com/ryan-ven/ezbx/providers"
 )
 
@@ -144,9 +146,29 @@ func makePlan(ctx context.Context, cfg *config.Config, dirs paths.Dirs, stdout i
 		Box: name, Names: box.NamesFor(name), Workspace: ws, StateDir: dirs.Box(name), LogOn: cfg.LogOn(),
 		Upstream: upstream, EngineID: eng.ID, EngineName: eng.Name, UpstreamHost: override.Host, KeyEnv: override.KeyEnv,
 		Network: b.Network, Allow: box.AllowList(b.Allow, chosen),
-		Memory: b.Memory, CPUs: b.CPUsFlag(), PIDs: b.PIDs,
+		Memory: memoryLimit(ctx, b.Memory), CPUs: b.CPUsFlag(), PIDs: b.PIDs,
 		Harnesses: b.Harnesses, HomeFiles: files,
 	}, nil
+}
+
+// memoryLimit is the configured limit, or, when there is none, half of
+// Docker's memory from 2g to 8g (the same rule as ezbx init).
+func memoryLimit(ctx context.Context, configured string) string {
+	if configured != "" {
+		return configured
+	}
+	return setup.MemoryFor(dockerMemory(ctx))
+}
+
+// dockerMemory is the memory Docker has, in bytes, or 0 if Docker doesn't
+// say. On Docker Desktop this is its virtual machine's memory.
+func dockerMemory(ctx context.Context) int64 {
+	out, err := dockerIn(ctx, nil, "info", "--format", "{{.MemTotal}}")
+	if err != nil {
+		return 0
+	}
+	n, _ := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	return n
 }
 
 // boxHarnesses loads the manifests of a box's harnesses. Only verified ones

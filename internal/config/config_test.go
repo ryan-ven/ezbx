@@ -65,7 +65,7 @@ func TestDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, b := c.Only()
-	if b.Memory != DefaultMemory || b.PIDs != DefaultPIDs || b.Network != "off" || b.CPUsFlag() != "" {
+	if b.Memory != "" || b.PIDs != DefaultPIDs || b.Network != "off" || b.CPUsFlag() != "" {
 		t.Errorf("defaults: %+v", b)
 	}
 	if c.Engine.Use != "auto" || !c.LogOn() {

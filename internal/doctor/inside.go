@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -38,6 +39,40 @@ var publicTargets = []string{"1.1.1.1:443", "8.8.8.8:53", "9.9.9.9:443"}
 // Names the box must not be able to resolve: an outside name, and Docker
 // Desktop's names for the host.
 var outsideNames = []string{"example.com", "host.docker.internal", "gateway.docker.internal"}
+
+// completionWait is how long the tiny completion may take. A model that was
+// just loaded, or that shares the GPU with a game, can be slow to answer
+// the first time.
+var completionWait = 2 * time.Minute
+
+// tinyCompletion asks for one token through the gateway. Taking too long is
+// a warning, not a failure: the model list already came back, so the route
+// works, and a cold model can simply be slow.
+func tinyCompletion(ctx context.Context, base, model string, wait time.Duration) (Status, string, string) {
+	client := &http.Client{Timeout: wait, Transport: &http.Transport{Proxy: nil}}
+	body, _ := json.Marshal(map[string]any{"model": model, "max_tokens": 1, "messages": []map[string]string{{"role": "user", "content": "Hi"}}})
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	start := time.Now()
+	resp, err := client.Do(req)
+	if err != nil {
+		var ne net.Error
+		if errors.As(err, &ne) && ne.Timeout() {
+			return Warn, fmt.Sprintf("no answer within %s", wait),
+				"The engine answered the model list but not a chat in time. A model that was just loaded, or that shares the GPU with another program, can be slow at first. Run ezbx doctor again in a minute."
+		}
+		return Fail, shortErr(err), "Check the engine with `ezbx engine detect`."
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	resp.Body.Close()
+	switch {
+	case resp.StatusCode != http.StatusOK:
+		return Fail, fmt.Sprintf("status %d", resp.StatusCode), "The engine refused a chat request. Check its own log."
+	case resp.Header.Get("X-Ezbx-Model") != model:
+		return Fail, fmt.Sprintf("reply names model %q, expected %q", resp.Header.Get("X-Ezbx-Model"), model), ""
+	}
+	return Pass, fmt.Sprintf("answered in %d ms", time.Since(start).Milliseconds()), ""
+}
 
 // RunInside runs the checks that need to see what the box sees.
 func RunInside(ctx context.Context, cfg InsideConfig) Report {
@@ -79,25 +114,8 @@ func RunInside(ctx context.Context, cfg InsideConfig) Report {
 	if model == "" {
 		r.add(g, "a tiny completion", Skip, "no model to ask", "")
 	} else {
-		body, _ := json.Marshal(map[string]any{"model": model, "max_tokens": 1, "messages": []map[string]string{{"role": "user", "content": "Hi"}}})
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+cfg.Gateway+"/v1/chat/completions", bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		start := time.Now()
-		resp, err := client.Do(req)
-		switch {
-		case err != nil:
-			r.add(g, "a tiny completion", Fail, shortErr(err), "Check the engine with `ezbx engine detect`.")
-		default:
-			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
-			resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				r.add(g, "a tiny completion", Fail, fmt.Sprintf("status %d", resp.StatusCode), "The engine refused a chat request. Check its own log.")
-			} else if got := resp.Header.Get("X-Ezbx-Model"); got != model {
-				r.add(g, "a tiny completion", Fail, fmt.Sprintf("reply names model %q, expected %q", got, model), "")
-			} else {
-				r.add(g, "a tiny completion", Pass, fmt.Sprintf("answered in %d ms", time.Since(start).Milliseconds()), "")
-			}
-		}
+		s, detail, fix := tinyCompletion(ctx, "http://"+cfg.Gateway, model, completionWait)
+		r.add(g, "a tiny completion", s, detail, fix)
 	}
 
 	// 3. Only the expected gateway ports are open.

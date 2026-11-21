@@ -12,7 +12,7 @@ version = 1
 
 [box.main]                        # name: lowercase letters, digits and dashes
 workspace = '~/ezbx/workspace'    # the ONLY folder the agent can write to
-memory    = "4g"                  # default 4g
+# memory  = "8g"                  # default: half of Docker's memory, from 2g to 8g
 # cpus    = 4                     # default: no limit
 # pids    = 512                   # process limit, default 512
 network   = "off"                 # off | allow | on
