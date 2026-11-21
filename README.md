@@ -4,7 +4,7 @@
 
 EZBox is a planned one-click setup for running AI coding and agent tools inside a sandboxed container, while the model itself keeps running on your own machine.
 
-> **Status: early development.** One harness (Pi) works end to end on Windows with Docker Desktop: `ezbx init` sets it up from nothing, builds the images and starts the box, and `ezbx shell pi` opens it, after taking a snapshot of the workspace that `ezbx rewind` can go back to. The admin shell and `reset`/`destroy` are not built yet; the checklist below shows where things stand. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
+> **Status: early development.** One harness (Pi) works end to end on Windows with Docker Desktop: `ezbx init` sets it up from nothing, builds the images and starts the box, and `ezbx shell pi` opens it, after taking a snapshot of the workspace that `ezbx rewind` can go back to. Every command on the road to the first usable version below is built; other harnesses, engines and cloud keys come next. Test results are in [docs/isolation-test.md](docs/isolation-test.md), and designs are in [docs/](docs/).
 
 ```text
 go install ./cmd/ezbx     from a clone; needs Go and Docker Desktop
@@ -42,8 +42,8 @@ The goal: set up Pi with a local model on Strata, from nothing, using only `ezbx
 | `ezbx net off\|allow\|on`, `ezbx net allow HOST` | The network switch and approvals | done |
 | `ezbx engine use` | Point a running box at an engine, for example after it moves to a new port | done |
 | `ezbx snapshot` / `rewind` / `review` | Undo an agent's changes to the workspace; `ezbx shell` takes a snapshot first ([docs/snapshots.md](docs/snapshots.md)) | done |
-| `ezbx admin shell` | A root shell for the human, in a separate container | not built |
-| `ezbx reset` / `destroy` | Start again, or remove everything EZBox made | not built |
+| `ezbx admin shell` | A root shell for the human, in a separate, temporary container ([docs/admin.md](docs/admin.md)) | done |
+| `ezbx reset` / `destroy` | A fresh agent home after a backup, or remove everything EZBox made (never the workspace) | done |
 | `ezbx doctor` | Check the whole setup and explain fixes | done |
 
 ## Safety note

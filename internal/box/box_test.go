@@ -373,6 +373,8 @@ func (f *fakeDocker) run(_ context.Context, stdin []byte, args ...string) ([]byt
 		delete(f.containers, args[len(args)-1])
 	case strings.HasPrefix(line, "network rm"):
 		delete(f.networks, args[len(args)-1])
+	case strings.HasPrefix(line, "volume rm"):
+		delete(f.volumes, args[len(args)-1])
 	}
 	return nil, nil
 }

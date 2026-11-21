@@ -147,6 +147,15 @@ From a scratch `EZBX_HOME`, with the fake engine, a box named `vt` and a workspa
 - With the store locked, `ezbx shell` refused to start the session and named `--no-snapshot`.
 - **Found and fixed:** `review` printed git's internal files one by one, burying the real changes; they are now summed up per project. Mutation checks found four weak tests (size-only change, the safety snapshot not checked on disk, a folder the target left out, the big-diff fallback), all fixed. The link protection is tested on Linux only, because Windows needs extra rights to make links.
 
+### `ezbx admin shell`, `reset` and `destroy` (same day)
+
+From a scratch `EZBX_HOME`, with the fake engine and a box named `vt`, while my own box kept running.
+
+- **Admin shell:** root, home `/root`, in `/workspace`; it read the agent's files and changed their owner; Docker's normal capabilities (`CapEff 00000000a80425fb`), no Docker socket; no network by default (name lookups fail), and `--net` reached a public site (HTTP 200). Files left in `/root` and `/opt` were gone in the next admin shell, and no admin container was left.
+- **Reset:** answering "n" changed nothing. With `--yes` it backed up `ezbx.toml`, `approved-hosts` and `home.tar`, gave the agent a fresh home (a file the agent had left was gone, Pi's settings were back), kept the approved host, and the doctor passed 21 of 21. `--restore` put the file back, owned by the agent with its modes. It refused while a process ran in the box, and when the backup couldn't be written it changed nothing and the box stayed up.
+- **Destroy:** with `--yes` it refused while a process ran in the box. It listed everything with sizes and the snapshot and backup counts, kept the images my own box was using and said so, and removed nothing when the wrong name was typed. Typing the box name removed the containers, networks, home volume, state folder, its two gateway images and `images.json`, and left the workspace and the config. `--remove-config` then removed the config.
+- **Found and fixed:** `docker container ls` has no `ImageID` field, so the first version of destroy's in-use check would have failed (found by trying the command before the live run). Destroy would have removed images another box uses; it now keeps them. A backup cut off between two files passed the first check; the check now reads every file in full and needs tar's end marker. Destroy said it removed a state folder that wasn't there. `reset` gained `--no-doctor`, because the doctor checks every engine on the computer.
+
 ## Limits of this result
 
 - On the test machine, public DNS servers didn't answer even from the outside network, so the "public DNS blocked" checks prove less than they appear to. The checks against Docker Desktop's own DNS server, which did answer from the outside, are the meaningful ones.

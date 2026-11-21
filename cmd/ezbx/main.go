@@ -36,6 +36,9 @@ Usage:
   ezbx snapshot [-m NOTE] | ezbx snapshot list | ezbx snapshot remove ID [--yes]
   ezbx review [ID] [--diff]
   ezbx rewind [ID] [--yes]
+  ezbx admin shell [--net] [--box NAME] [-- COMMAND...]
+  ezbx reset [--rebuild] [--restore ID] [--yes] [--no-doctor] | ezbx reset --list
+  ezbx destroy [--box NAME] [--remove-config] [--yes]
   ezbx net [off|allow|on] [--box NAME]
   ezbx net allow|remove HOST... [--box NAME]
   ezbx engine detect [--json] [--timeout 500ms] [--url ADDRESS]...
@@ -75,6 +78,17 @@ Commands:
   rewind          Put the workspace back as it was in a snapshot (the
                   newest by default). Takes a snapshot first, so a rewind
                   can be undone too.
+  admin shell     A root shell for you (never the agent) in a temporary
+                  container beside the box, with the workspace and the
+                  agent's home mounted. No network unless --net. Changes
+                  outside those two folders are gone when it exits.
+  reset           Back up, then give the box a fresh agent home and fresh
+                  containers. Keeps the workspace, snapshots, approved hosts,
+                  config and images. --restore ID puts a backed-up home back.
+  destroy         Remove everything EZBox made for the box: containers,
+                  networks, the agent's home, the state folder (snapshots
+                  too) and EZBox's images. Never the workspace. Asks you to
+                  type the box name first.
   net             Show the network mode, allowed and recently blocked
                   hosts. net off|allow|on changes the mode until the next
                   up. net allow HOST approves a host and saves it, so it
@@ -122,6 +136,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(args) >= 1 && args[0] == "shell" {
 		return runShell(args[1:], stdout, stderr)
+	}
+	if len(args) >= 2 && args[0] == "admin" && args[1] == "shell" {
+		return runAdminShell(args[2:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "reset" {
+		return runReset(args[1:], stdout, stderr)
+	}
+	if len(args) >= 1 && args[0] == "destroy" {
+		return runDestroy(args[1:], stdout, stderr)
 	}
 	if len(args) >= 1 && args[0] == "snapshot" {
 		return runSnapshot(args[1:], stdout, stderr)

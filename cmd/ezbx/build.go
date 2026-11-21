@@ -103,7 +103,18 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 
 // buildImages builds each image that isn't built yet and records it.
 func buildImages(ctx context.Context, dirs paths.Dirs, stdout io.Writer, specs ...images.Spec) error {
+	return buildImagesWith(ctx, dirs, stdout, false, specs...)
+}
+
+// rebuildImages builds every layer again, even of images that are built,
+// for ezbx reset --rebuild.
+func rebuildImages(ctx context.Context, dirs paths.Dirs, stdout io.Writer, specs ...images.Spec) error {
+	return buildImagesWith(ctx, dirs, stdout, true, specs...)
+}
+
+func buildImagesWith(ctx context.Context, dirs paths.Dirs, stdout io.Writer, again bool, specs ...images.Spec) error {
 	ir := imageRunner(stdout)
+	ir.NoCache = again
 	file := images.RecordFile(dirs.Config)
 	rec, err := images.ReadRecord(file)
 	if err != nil {
@@ -113,6 +124,7 @@ func buildImages(ctx context.Context, dirs paths.Dirs, stdout io.Writer, specs .
 		err := ir.Check(ctx, s)
 		var missing images.ErrNotBuilt
 		switch {
+		case err == nil && again:
 		case err == nil:
 			fmt.Fprintf(stdout, "%s is built already (%s image)\n", s.Tag(), s.Kind)
 			if b, ok := rec.Images[s.Kind]; !ok || b.Tag != s.Tag() {

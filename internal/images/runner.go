@@ -20,6 +20,8 @@ type Runner struct {
 	Stream func(ctx context.Context, stdin []byte, args ...string) error
 	Out    io.Writer
 	Now    func() time.Time
+	// NoCache builds every layer again, for an image that may be damaged.
+	NoCache bool
 }
 
 // ErrNotBuilt means the image for these inputs isn't on this computer.
@@ -64,7 +66,11 @@ func (r *Runner) Build(ctx context.Context, s Spec) (Built, error) {
 		return Built{}, err
 	}
 	fmt.Fprintf(r.Out, "building %s (%s image)\n", s.Tag(), s.Kind)
-	if err := r.Stream(ctx, tar, s.BuildArgs()...); err != nil {
+	args := s.BuildArgs()
+	if r.NoCache {
+		args = append([]string{args[0], "--no-cache"}, args[1:]...)
+	}
+	if err := r.Stream(ctx, tar, args...); err != nil {
 		return Built{}, fmt.Errorf("building %s failed (see the output above): %w", s.Tag(), err)
 	}
 	if err := r.Check(ctx, s); err != nil {

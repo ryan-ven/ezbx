@@ -92,7 +92,7 @@ Containers reach the host through a host alias. On Docker Desktop this worked fo
 - **Optional read-only view:** you may expose extra host folders read-only. Common secret files are masked with empty overlays, and the `ezbx` scanner warns about other secret-like files in anything exposed.
 - **No Docker socket**, ever.
 - **Resource limits:** memory, CPU and process limits with sensible defaults, adjustable.
-- **Admin access:** reserved for the human. `ezbx admin shell` starts a separate, short-lived admin container from the same image, because root in the main box has no capabilities. Admin tasks such as system packages happen there and are baked in on rebuild.
+- **Admin access:** reserved for the human. `ezbx admin shell` starts a separate, short-lived admin container from the same image, because root in the main box has no capabilities. It mounts the workspace and the agent's home, has no network unless asked, and nothing else in it lasts: programs for the agent come from the tool catalogue and `ezbx build`, so images stay pinned. See [admin.md](admin.md).
 
 Future option: a read-only root filesystem with tmpfs for scratch space.
 
@@ -123,7 +123,8 @@ ezbx harness add|remove|list
 ezbx snapshot | rewind | review
 ezbx admin shell        human-only root shell in a temporary admin container
 ezbx doctor             check Docker, engine, gateway, mounts and network
-ezbx reset              rebuild from scratch; backs up config first and refuses to continue if the backup fails
+ezbx reset              a fresh agent home and containers; backs up first and refuses to continue if the backup fails
+ezbx destroy            remove everything EZBox made for a box, never the workspace
 ```
 
 Language: Go, built as one cross-platform binary. The first milestone targets Windows with Docker Desktop, and the code avoids Windows-only assumptions so Linux can follow.
@@ -176,6 +177,8 @@ It does not fully protect against:
 | 13 | `ezbx.lock` and what `up` accepts | `ezbx.lock` is committed and generated from the files: base image digests, harness versions and lockfile hashes, tools. What was built on a computer goes in `images.json` next to `ezbx.toml`. `up` refuses images not built from the current inputs. |
 | 14 | Image names and old images | Each image is named after a hash of its inputs (`ezbx-box:<12 hex digits>`). Rebuilds keep the old images; `ezbx build --prune` removes older ones after asking, keeping the current images and the ones they replaced. |
 | 15 | Snapshots | A store of EZBox's own in the state folder (content kept once, compressed, by hash; a list per snapshot), not git, which keeps a nested git repository only as a pointer. Taken at every `ezbx shell` and by hand. Rebuildable folders and files over 100 MB left out; the last 20 automatic ones kept. `rewind` snapshots first, then matches the workspace exactly, and refuses while a session runs. See [snapshots.md](snapshots.md). |
+| 16 | Admin shell | A temporary root container from the box image, with Docker's normal capabilities (never privileged), no Docker socket, the workspace and agent home mounted, home `/root`, no network unless `--net`. Nothing outside the mounts lasts; programs come from tools and `ezbx build`. See [admin.md](admin.md). |
+| 17 | `reset` and `destroy` | `reset` backs up the config, approved hosts and the agent's home (refusing if that fails), then gives a fresh home and containers; workspace, snapshots, approved hosts, config and images are kept; `--restore ID` undoes it. `destroy` removes the containers, networks, home volume, state folder (snapshots too) and EZBox's images, never the workspace, keeps `ezbx.toml` unless `--remove-config`, and asks you to type the box name. See [admin.md](admin.md). |
 
 ## 14. Open questions
 
